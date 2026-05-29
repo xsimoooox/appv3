@@ -142,7 +142,17 @@ export function listenFirebaseValue(path, onValue, onConnection) {
   return () => source.close();
 }
 
-export async function createRealtimeCall({ code, callerUid, callerName, lang, notifyAudience = 'deaf' }) {
+export async function createRealtimeCall({
+  code,
+  callerUid,
+  callerName,
+  lang,
+  notifyAudience = 'deaf',
+  callerPhone = '',
+  callerRole = 'deaf',
+  targetContactId = '',
+  targetPhone = '',
+}) {
   const timestamp = Date.now();
   storeSessionCode(code);
   await setFirebaseData(`sessions/${code}`, {
@@ -152,23 +162,34 @@ export async function createRealtimeCall({ code, callerUid, callerName, lang, no
       timestamp,
       lang,
     },
-    status: 'idle',
+    status: 'active',
     participants: {
       A: callerUid,
       B: null,
     },
     createdAt: timestamp,
+    lastActivity: timestamp,
   });
   await setFirebaseData(`calls/${code}`, {
     caller: callerUid,
     callerName,
+    callerPhone,
+    callerRole,
+    targetContactId,
+    targetPhone,
     status: 'ringing',
     lang,
     createdAt: timestamp,
+    lastActivity: timestamp,
   });
   const notification = {
     code,
     callerName,
+    callerUid,
+    callerPhone,
+    callerRole,
+    targetContactId,
+    targetPhone,
     timestamp,
     status: 'pending',
   };
@@ -182,8 +203,25 @@ export async function createRealtimeCall({ code, callerUid, callerName, lang, no
 
 export async function joinRealtimeCall({ code, uid }) {
   storeSessionCode(code);
-  await updateFirebaseData(`sessions/${code}/participants`, { B: uid });
-  await updateFirebaseData(`calls/${code}`, { status: 'active' });
+  const now = Date.now();
+  await updateFirebaseData(`sessions/${code}`, {
+    participants: { B: uid },
+    status: 'active',
+    lastActivity: now,
+  });
+  await updateFirebaseData(`calls/${code}`, {
+    status: 'active',
+    lastActivity: now,
+    joinedAt: now,
+  });
+}
+
+/** Maintient l'appel actif (évite les coupures intempestives). */
+export async function touchRealtimeCall(code) {
+  if (!code) return;
+  const now = Date.now();
+  await updateFirebaseData(`calls/${code}`, { lastActivity: now });
+  await updateFirebaseData(`sessions/${code}`, { lastActivity: now });
 }
 
 export async function sendTranscript({ code, text, isFinal, lang }) {

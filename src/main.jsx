@@ -19,6 +19,12 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+  window.addEventListener('load', () => {
+    Notification.requestPermission().catch(() => {});
+  });
+}
+
 function initAppOnLoad() {
   const user = getWakwakUser();
   if (user?.id) {

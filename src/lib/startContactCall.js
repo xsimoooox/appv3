@@ -4,8 +4,12 @@ import {
   createRealtimeCall,
   generateSessionCode,
   getClientUid,
+  joinRealtimeCall,
   storeSessionCode,
+  touchRealtimeCall,
 } from './firebaseRealtime';
+import { setPresenceInCall } from './presenceFirebase';
+import { normalizePhoneNumber } from './phoneUtils';
 
 /** Socket.io disponible (serveur local ou VITE_SOCKET_URL configuré). */
 export function isSocketCallAvailable() {
@@ -17,11 +21,17 @@ export function isSocketCallAvailable() {
  * Démarre un appel LSF via Firebase (fonctionne sur Vercel sans serveur Socket.io).
  * @returns {{ code: string, path: string }}
  */
-export async function startFirebaseCall({ role, contactId, routePrefix }) {
+export async function startFirebaseCall({
+  role,
+  contactId,
+  routePrefix,
+  targetPhone = '',
+}) {
   const code = generateSessionCode();
   const uid = getClientUid(role === 'deaf' ? 'deaf' : 'hearing');
   const user = getWakwakUser();
   const callerName = user?.name || (role === 'deaf' ? 'Personne sourde' : 'Personne entendante');
+  const callerPhone = normalizePhoneNumber(user?.phoneNumber || '');
 
   await createRealtimeCall({
     code,
@@ -29,7 +39,18 @@ export async function startFirebaseCall({ role, contactId, routePrefix }) {
     callerName,
     lang: 'fr-FR',
     notifyAudience: role === 'deaf' ? 'hearing' : 'deaf',
+    callerPhone,
+    callerRole: role === 'deaf' ? 'deaf' : 'hearing',
+    targetContactId: contactId,
+    targetPhone: normalizePhoneNumber(targetPhone),
   });
+
+  await joinRealtimeCall({ code, uid }).catch(() => {});
+  await touchRealtimeCall(code).catch(() => {});
+
+  if (callerPhone) {
+    await setPresenceInCall(callerPhone, code);
+  }
 
   storeSessionCode(code);
 
@@ -61,7 +82,7 @@ export async function startContactCall({
   }
 
   try {
-    const result = await startFirebaseCall({ role, contactId, routePrefix });
+    const result = await startFirebaseCall({ role, contactId, routePrefix, targetPhone });
     return { mode: 'firebase', ...result };
   } catch (err) {
     onError?.(err);

@@ -5,14 +5,16 @@ import React, {
   useEffect,
   useMemo,
   useRef,
-  useState,
 } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import IncomingCallModal from '../components/IncomingCallModal';
 import OutgoingCallModal from '../components/OutgoingCallModal';
+import FirebaseIncomingCallOverlay from '../components/FirebaseIncomingCallOverlay';
 import { SYSTEM_PHONES } from '../data/callDirectory';
 import { useCallSystem } from '../hooks/useCallSystem';
 import { usePushNotification } from '../hooks/usePushNotification';
+import { useFirebasePresence } from '../hooks/useFirebasePresence';
+import { useGlobalCallListener } from '../hooks/useGlobalCallListener';
 import { getCallRouteForPeer } from '../lib/callNavigation';
 import { normalizePhoneNumber } from '../lib/phoneUtils';
 import { getWakwakUser } from '../lib/wakwakUser';
@@ -22,7 +24,7 @@ const CallSystemContext = createContext(null);
 export function CallSystemProvider({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [callToast, setCallToast] = useState(null);
+  const [callToast, setCallToast] = React.useState(null);
   const navigatedCallKeyRef = useRef(null);
   const pushAcceptHandledRef = useRef(false);
 
@@ -39,6 +41,13 @@ export function CallSystemProvider({ children }) {
   const myRole = wakwakUser?.role
     || (localStorage.getItem('wakwak_profile') === 'entendant' ? 'hearing' : 'deaf');
 
+  const presenceByPhone = useFirebasePresence();
+  const {
+    firebaseIncomingCall,
+    acceptFirebaseIncomingCall,
+    rejectFirebaseIncomingCall,
+  } = useGlobalCallListener();
+
   usePushNotification(myPhoneNumber);
 
   const onToast = useCallback((message, type = 'info') => {
@@ -50,6 +59,24 @@ export function CallSystemProvider({ children }) {
     onToast,
     myUserId: wakwakUser?.id,
   });
+
+  const getRealtimeStatus = useCallback(
+    (phoneNumber, fallbackStatus = 'offline') => {
+      const phone = normalizePhoneNumber(phoneNumber);
+      if (callSystem.activeCall?.withPhone && normalizePhoneNumber(callSystem.activeCall.withPhone) === phone) {
+        return 'busy';
+      }
+      if (firebaseIncomingCall?.code) {
+        return fallbackStatus === 'busy' ? 'busy' : 'online';
+      }
+      const socketLive = callSystem.onlineContacts[phone];
+      if (socketLive === 'online' || socketLive === 'busy') return socketLive;
+      const firebaseLive = presenceByPhone[phone];
+      if (firebaseLive) return firebaseLive;
+      return fallbackStatus;
+    },
+    [callSystem.activeCall, callSystem.onlineContacts, presenceByPhone, firebaseIncomingCall],
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return;
@@ -110,7 +137,24 @@ export function CallSystemProvider({ children }) {
     callSystem.acceptCallFromPush,
   ]);
 
-  const value = useMemo(() => callSystem, [callSystem]);
+  const value = useMemo(
+    () => ({
+      ...callSystem,
+      getRealtimeStatus,
+      firebaseIncomingCall,
+      acceptFirebaseIncomingCall,
+      rejectFirebaseIncomingCall,
+      presenceByPhone,
+    }),
+    [
+      callSystem,
+      getRealtimeStatus,
+      firebaseIncomingCall,
+      acceptFirebaseIncomingCall,
+      rejectFirebaseIncomingCall,
+      presenceByPhone,
+    ],
+  );
 
   return (
     <CallSystemContext.Provider value={value}>
@@ -126,6 +170,14 @@ export function CallSystemProvider({ children }) {
         >
           {callToast.message}
         </div>
+      )}
+
+      {firebaseIncomingCall && !callSystem.incomingCall && (
+        <FirebaseIncomingCallOverlay
+          incomingCall={firebaseIncomingCall}
+          onAccept={acceptFirebaseIncomingCall}
+          onReject={rejectFirebaseIncomingCall}
+        />
       )}
 
       {callSystem.incomingCall && (

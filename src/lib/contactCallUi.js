@@ -1,13 +1,5 @@
-/** Classes du bouton d'appel sur les cards — logique uniquement, design existant préservé */
+/** Classes du bouton d'appel — appels autorisés sauf si occupé (en appel). */
 export function getContactCallState(realtimeStatus) {
-  if (realtimeStatus === 'online') {
-    return {
-      disabled: false,
-      buttonClass:
-        'w-7 h-7 rounded-full flex items-center justify-center text-white active:scale-90 transition-transform cursor-pointer bg-[#16a34a] hover:bg-emerald-600',
-      useLucidePhone: true,
-    };
-  }
   if (realtimeStatus === 'busy') {
     return {
       disabled: true,
@@ -18,22 +10,14 @@ export function getContactCallState(realtimeStatus) {
     };
   }
   return {
-    disabled: true,
+    disabled: false,
     buttonClass:
-      'w-7 h-7 rounded-full flex items-center justify-center cursor-not-allowed bg-[#2a2a2a]',
-    useLucidePhone: false,
-    themifyIcon: 'ti-phone-off',
-    themifyColor: '#666',
+      'w-7 h-7 rounded-full flex items-center justify-center text-white active:scale-90 transition-transform cursor-pointer bg-[#16a34a] hover:bg-emerald-600',
+    useLucidePhone: true,
   };
 }
 
 export function getEntendantCallState(realtimeStatus) {
-  if (realtimeStatus === 'online') {
-    return {
-      disabled: false,
-      className: 'w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-[#16a34a] text-white',
-    };
-  }
   if (realtimeStatus === 'busy') {
     return {
       disabled: true,
@@ -42,7 +26,13 @@ export function getEntendantCallState(realtimeStatus) {
     };
   }
   return {
-    disabled: true,
-    className: 'w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-[#e5e5e5] text-[#666666]',
+    disabled: false,
+    className: 'w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-[#16a34a] text-white',
   };
+}
+
+export function getPresenceLabel(status) {
+  if (status === 'online') return 'En ligne';
+  if (status === 'busy') return 'Occupé';
+  return 'Hors ligne';
 }

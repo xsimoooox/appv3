@@ -14,7 +14,11 @@ import {
   sendTranscript,
   showLocalIncomingNotification,
   storeSessionCode,
+  touchRealtimeCall,
 } from '../lib/firebaseRealtime';
+import { getPresenceLabel } from '../lib/contactCallUi';
+import { setPresenceAvailable, setPresenceInCall } from '../lib/presenceFirebase';
+import { getWakwakUser } from '../lib/wakwakUser';
 import {
   Calendar,
   Check,
@@ -164,39 +168,9 @@ function ContactList() {
   const [query, setQuery] = useState('');
   const [contacts, setContacts] = useState(loadStoredContacts);
   const [listToast, setListToast] = useState(null);
-  const [incomingCall, setIncomingCall] = useState(null);
-
   useEffect(() => {
     setContacts(loadStoredContacts());
   }, [location.pathname]);
-
-  useEffect(() => {
-    let lastNotifiedCode = '';
-    const stopListening = listenFirebaseValue('calls', (calls) => {
-      if (!calls || typeof calls !== 'object') return;
-      const ringing = Object.entries(calls)
-        .filter(([, call]) => call?.status === 'ringing')
-        .map(([code, call]) => ({ code, ...call }))
-        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
-
-      if (!ringing) return;
-      setIncomingCall(ringing);
-      if (ringing.code !== lastNotifiedCode) {
-        lastNotifiedCode = ringing.code;
-        showLocalIncomingNotification({
-          code: ringing.code,
-          callerName: ringing.callerName || 'Personne sourde',
-        });
-      }
-    });
-    return stopListening;
-  }, []);
-
-  useEffect(() => {
-    if (!incomingCall) return undefined;
-    const timer = setTimeout(() => setIncomingCall(null), 30000);
-    return () => clearTimeout(timer);
-  }, [incomingCall]);
 
   useEffect(() => {
     if (!activeCall?.withPhone) return;
@@ -232,6 +206,10 @@ function ContactList() {
       });
 
       if (result.mode === 'firebase') {
+        const user = getWakwakUser();
+        if (user?.phoneNumber) {
+          setPresenceInCall(user.phoneNumber, result.code).catch(() => {});
+        }
         navigate(result.path);
         setListToast(`📞 Appel démarré — code ${result.code}`);
         setTimeout(() => setListToast(null), 3000);
@@ -254,44 +232,6 @@ function ContactList() {
 
   return (
     <div className="w-full max-w-md mx-auto min-h-screen bg-[#f5f5f5] text-[#111111] pb-[88px] select-none animate-fade-in">
-      {incomingCall && (
-        <div className="fixed top-3 left-1/2 z-[10001] w-[calc(100%-24px)] max-w-sm -translate-x-1/2 rounded-[14px] border border-[#6366f1] bg-[#f5f0ff] p-3 shadow-xl animate-fade-in">
-          <div className="flex items-start gap-2">
-            <PhoneIncoming className="shrink-0 text-[#6366f1]" size={22} strokeWidth={2.5} />
-            <div className="min-w-0 flex-1">
-              <div className="text-[12px] font-extrabold">Appel entrant LSF</div>
-              <div className="mt-0.5 text-[10px] font-bold text-[#777777]">
-                Code : <span className="text-[#6366f1]">{incomingCall.code}</span> — {incomingCall.callerName || 'Personne sourde'}
-              </div>
-            </div>
-          </div>
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const target = contacts[0]?.id || 'amina';
-                navigate(`/entendant/call/${target}?code=${encodeURIComponent(incomingCall.code)}`);
-                setIncomingCall(null);
-              }}
-              className="h-8 flex-1 rounded-[9px] bg-[#16a34a] text-[11px] font-extrabold text-white active:scale-95"
-            >
-              Rejoindre
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (incomingCall?.code) {
-                  endRealtimeCall(incomingCall.code).catch(() => {});
-                }
-                setIncomingCall(null);
-              }}
-              className="h-8 flex-1 rounded-[9px] bg-[#ef4444] text-[11px] font-extrabold text-white active:scale-95"
-            >
-              Refuser
-            </button>
-          </div>
-        </div>
-      )}
       {listToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[10001] px-4 py-2 rounded-full bg-[#6366f1] text-white text-[11px] font-bold shadow-lg">
           {listToast}
@@ -574,7 +514,7 @@ function ContactDetail({ contact, onDelete, onToggleFavorite, onShare }) {
         <div className="flex items-center gap-1.5 mt-2">
           <span className="w-[7px] h-[7px] rounded-full" style={{ backgroundColor: statusColor[liveStatus] || statusColor.offline }} />
           <span className="text-[10px] font-bold" style={{ color: statusColor[liveStatus] || statusColor.offline }}>
-            {liveStatus === 'online' ? 'En ligne' : liveStatus === 'busy' ? 'Occupé' : 'Hors ligne'}
+            {getPresenceLabel(liveStatus)}
           </span>
         </div>
       </section>
@@ -747,6 +687,7 @@ function CallScreen({ contact }) {
   const location = useLocation();
   const codeFromUrl = new URLSearchParams(location.search).get('code');
   const isJoiningExisting = Boolean(codeFromUrl);
+  const endedIntentionallyRef = useRef(false);
   const { endCall, activeCall, receivedText, emitVoiceText, canSpeakTurn } = useCallSystemContext();
   const canvasRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -861,9 +802,14 @@ function CallScreen({ contact }) {
       if (data?.glove?.text) onSignReceived(data.glove.text);
     });
 
+    const keepAlive = setInterval(() => {
+      touchRealtimeCall(sessionCode).catch(() => {});
+    }, 20000);
+
     return () => {
       mountedRef.current = false;
       clearInterval(reminder);
+      clearInterval(keepAlive);
       stopSession();
       if (bcRef.current) {
         bcRef.current.close();
@@ -872,7 +818,6 @@ function CallScreen({ contact }) {
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
-      endRealtimeCall(sessionCode).catch(() => {});
     };
   }, [sessionCode, isJoiningExisting, speechLang]);
 
@@ -1041,7 +986,12 @@ function CallScreen({ contact }) {
       }
     }
     postBc({ type: 'SESSION_END', role: 'hearing', timestamp: new Date().toISOString() });
+    endedIntentionallyRef.current = true;
     endRealtimeCall(sessionCode).catch(() => {});
+    const user = getWakwakUser();
+    if (user?.phoneNumber) {
+      setPresenceAvailable(user.phoneNumber).catch(() => {});
+    }
     endCall();
     setShowSaveDialog(true);
   };

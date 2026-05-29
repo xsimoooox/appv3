@@ -41,9 +41,12 @@ import {
   joinRealtimeCall,
   listenFirebaseValue,
   registerNotificationPreference,
-  showLocalIncomingNotification,
   storeSessionCode,
+  touchRealtimeCall,
 } from '../lib/firebaseRealtime';
+import { getPresenceLabel } from '../lib/contactCallUi';
+import { setPresenceAvailable, setPresenceInCall } from '../lib/presenceFirebase';
+import { getWakwakUser } from '../lib/wakwakUser';
 import { startContactCall } from '../lib/startContactCall';
 
 // Default mock contacts to populate Firestore initially
@@ -223,8 +226,6 @@ export default function Contacts() {
   const [remoteTranscript, setRemoteTranscript] = useState({ text: '', isFinal: true, lang: 'fr-FR' });
   const [remoteStatus, setRemoteStatus] = useState('idle');
   const [realtimeConnection, setRealtimeConnection] = useState('idle');
-  const [incomingCall, setIncomingCall] = useState(null);
-
   // Database refs
   const [frizittaDb, setFrizittaDb] = useState(null);
   const [alexDb, setAlexDb] = useState(null);
@@ -270,32 +271,6 @@ export default function Contacts() {
     const uid = getClientUid('deaf');
     registerNotificationPreference(uid).catch(() => {});
   }, []);
-
-  useEffect(() => {
-    let lastNotifiedCode = '';
-    const stopListening = listenFirebaseValue('calls', (calls) => {
-      if (!calls || typeof calls !== 'object') return;
-      const ringing = Object.entries(calls)
-        .filter(([, call]) => call?.status === 'ringing')
-        .map(([code, call]) => ({ code, ...call }))
-        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
-
-      if (!ringing || ringing.code === activeSessionCode) return;
-      setIncomingCall(ringing);
-      if (ringing.code !== lastNotifiedCode) {
-        lastNotifiedCode = ringing.code;
-        showLocalIncomingNotification({ code: ringing.code, callerName: ringing.callerName || 'Personne entendante' });
-      }
-    });
-
-    return stopListening;
-  }, [activeSessionCode]);
-
-  useEffect(() => {
-    if (!incomingCall) return undefined;
-    const timer = setTimeout(() => setIncomingCall(null), 30000);
-    return () => clearTimeout(timer);
-  }, [incomingCall]);
 
   // Parse Frizitta and Alex database files for calling screen
   useEffect(() => {
@@ -455,6 +430,11 @@ export default function Contacts() {
         });
 
         if (result.mode === 'firebase') {
+          setActiveSessionCode(result.code);
+          const user = getWakwakUser();
+          if (user?.phoneNumber) {
+            setPresenceInCall(user.phoneNumber, result.code).catch(() => {});
+          }
           navigate(result.path);
           showToast(`📞 Appel LSF démarré — code ${result.code}`);
         }
@@ -732,7 +712,6 @@ export default function Contacts() {
       storeSessionCode(code);
       setActiveSessionCode(code);
       setSessionCodeInput(code);
-      setIncomingCall(null);
       setRealtimeConnection('connected');
       showToast(`Session ${code} connectee`);
     } catch {
@@ -825,9 +804,22 @@ export default function Contacts() {
       }
     }, setRealtimeConnection);
 
+    const stopCallMeta = listenFirebaseValue(`calls/${activeSessionCode}`, (call) => {
+      if (call?.status === 'ended') {
+        setIsSpeaking(false);
+        setShowSaveDialog(true);
+      }
+    });
+
+    const keepAlive = setInterval(() => {
+      touchRealtimeCall(activeSessionCode).catch(() => {});
+    }, 20000);
+
     return () => {
       stopTranscript();
       stopStatus();
+      stopCallMeta();
+      clearInterval(keepAlive);
     };
   }, [screen, activeSessionCode, avatarMode]);
 
@@ -953,6 +945,10 @@ export default function Contacts() {
     endCall();
     if (activeSessionCode) {
       endRealtimeCall(activeSessionCode).catch(() => {});
+      const user = getWakwakUser();
+      if (user?.phoneNumber) {
+        setPresenceAvailable(user.phoneNumber).catch(() => {});
+      }
     }
     clearInterval(callTimerRef.current);
     if (simGloveIntervalRef.current) clearInterval(simGloveIntervalRef.current);
@@ -1023,47 +1019,6 @@ export default function Contacts() {
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[10000] px-4 py-2 bg-indigo-600 rounded-full text-xs font-bold text-white shadow-lg border border-indigo-500 animate-bounce">
           {toast}
-        </div>
-      )}
-
-      {incomingCall && (
-        <div className="fixed top-3 left-1/2 z-[10001] w-[calc(100%-24px)] max-w-sm -translate-x-1/2 rounded-[14px] border border-[#6366f1] bg-[#f5f0ff] p-3 text-[#111111] shadow-xl animate-fade-in">
-          <div className="flex items-start gap-2">
-            <PhoneIncoming className="shrink-0 text-[#6366f1]" size={22} strokeWidth={2.25} />
-            <div className="min-w-0 flex-1">
-              <div className="text-[12px] font-extrabold">Appel entrant</div>
-              <div className="mt-0.5 text-[10px] font-bold text-[#777777]">
-                Code : <span className="text-[#6366f1]">{incomingCall.code}</span> — {incomingCall.callerName || 'Personne entendante'}
-              </div>
-            </div>
-          </div>
-          <div className="mt-3 flex gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const target = activeContact?.id || 'c1';
-                navigate(`/call/${target}?code=${encodeURIComponent(incomingCall.code)}`);
-                joinSessionByCode(incomingCall.code);
-              }}
-              className="h-8 flex-1 rounded-[9px] bg-[#16a34a] text-[11px] font-extrabold text-white active:scale-95 flex items-center justify-center gap-1"
-            >
-              <LogIn size={14} strokeWidth={2.5} />
-              Rejoindre
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (incomingCall?.code) {
-                  endRealtimeCall(incomingCall.code).catch(() => {});
-                }
-                setIncomingCall(null);
-              }}
-              className="h-8 flex-1 rounded-[9px] bg-[#fee2e2] text-[11px] font-extrabold text-[#ef4444] active:scale-95 flex items-center justify-center gap-1"
-            >
-              <X size={14} strokeWidth={2.5} />
-              Ignorer
-            </button>
-          </div>
         </div>
       )}
 
@@ -1509,17 +1464,18 @@ export default function Contacts() {
             </p>
 
             {/* Status indicators */}
+            {(() => {
+              const live = getRealtimeStatus(getContactPhone(activeContact), activeContact.status);
+              const color = live === 'online' ? '#22c55e' : live === 'busy' ? '#f97316' : '#d1d5db';
+              return (
             <div className="flex items-center gap-1.5 mt-1 select-none">
-              <span 
-                className="w-2 h-2 rounded-full" 
-                style={{ 
-                  backgroundColor: activeContact.status === 'online' ? '#22c55e' : activeContact.status === 'busy' ? '#f97316' : '#d1d5db' 
-                }}
-              />
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
               <span className="text-[10.5px] font-bold text-slate-400 capitalize">
-                {activeContact.status === 'online' ? 'En ligne' : activeContact.status === 'busy' ? 'Occupé' : 'Hors ligne'}
+                {getPresenceLabel(live)}
               </span>
             </div>
+              );
+            })()}
           </div>
 
           {/* CALL IN LSF BUTTON */}

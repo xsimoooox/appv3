@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wakwak-v3';
+const CACHE_NAME = 'wakwak-v4';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 const DEFAULT_API = 'http://localhost:3001';
@@ -45,6 +45,32 @@ self.addEventListener('fetch', (e) => {
           }
           return caches.match('/index.html');
         });
+    }),
+  );
+});
+
+self.addEventListener('message', (e) => {
+  const data = e.data || {};
+  if (data.type !== 'INCOMING_CALL') return;
+
+  const code = data.code || '';
+  const acceptUrl = data.acceptUrl || (code ? `/call/c1?code=${encodeURIComponent(code)}` : '/');
+  const role = data.role === 'hearing' ? 'entendant' : 'deaf';
+
+  e.waitUntil(
+    self.registration.showNotification(data.title || '📞 Appel entrant — WakWak', {
+      body: data.body || `${data.callerName || 'Quelqu\'un'} vous appelle`,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/badge-72.png',
+      vibrate: [400, 200, 400, 200, 400, 200, 400],
+      tag: `wakwak-call-${code}`,
+      renotify: true,
+      requireInteraction: true,
+      silent: false,
+      data: { codeSession: code, acceptUrl, type: 'incoming_call', role },
+      actions: code
+        ? [{ action: 'join', title: '✅ Rejoindre' }, { action: 'reject', title: '❌ Refuser' }]
+        : [],
     }),
   );
 });
@@ -132,10 +158,13 @@ self.addEventListener('notificationclick', (e) => {
     return;
   }
 
-  const code = data.codeSession || '';
-  const url = code
-    ? `/call/c1?code=${encodeURIComponent(code)}`
-    : data.url || '/';
+  const code = data.codeSession || data.code || '';
+  const acceptUrl = data.acceptUrl || '';
+  const url = acceptUrl || (code
+    ? (data.role === 'entendant'
+      ? `/entendant/call/amina?code=${encodeURIComponent(code)}`
+      : `/call/c1?code=${encodeURIComponent(code)}`)
+    : data.url || '/');
 
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
