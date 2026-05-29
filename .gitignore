@@ -16,6 +16,10 @@ data/
 .env
 data/users.json
 
+# Allow source-level data directory (needed for callDirectory.js)
+!src/data/
+!src/data/**
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
