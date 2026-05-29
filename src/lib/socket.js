@@ -1,9 +1,11 @@
 import { io } from 'socket.io-client';
 
 const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+const IS_PRODUCTION = import.meta.env.PROD;
 
 let socket = null;
 let registeredUserId = null;
+let socketError = null;
 
 export function getSocket() {
   return socket;
@@ -23,6 +25,13 @@ export function initSocket(user) {
     return null;
   }
 
+  // Skip socket on production if no env URL is set
+  if (IS_PRODUCTION && SOCKET_URL === 'http://localhost:3001') {
+    console.warn('[SOCKET] Socket disabled in production (no VITE_SOCKET_URL configured)');
+    socketError = 'Socket service not available';
+    return null;
+  }
+
   if (socket && socket.connected && registeredUserId === user.id) {
     return socket;
   }
@@ -33,21 +42,43 @@ export function initSocket(user) {
     registeredUserId = null;
   }
 
-  socket = io(SOCKET_URL, {
-    transports: ['websocket', 'polling'],
-    reconnection: true,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000,
-    reconnectionAttempts: Infinity,
-    timeout: 20000,
-  });
+  try {
+    socket = io(SOCKET_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: Infinity,
+      timeout: 20000,
+    });
 
-  socket.on('connect', () => {
-    console.log('[SOCKET] Connecté:', socket.id);
-    registerUser(user);
-  });
+    socket.on('connect', () => {
+      console.log('[SOCKET] Connecté:', socket.id);
+      socketError = null;
+      registerUser(user);
+    });
 
-  socket.on('registered', (data) => {
+    socket.on('connect_error', (error) => {
+      console.warn('[SOCKET] Erreur de connexion:', error);
+      socketError = error?.message || 'Connection error';
+    });
+
+    socket.on('error', (error) => {
+      console.warn('[SOCKET] Erreur:', error);
+      socketError = error;
+    });
+  } catch (err) {
+    console.error('[SOCKET] Erreur lors de l\'initialisation:', err);
+    socketError = err?.message || 'Failed to initialize socket';
+    socket = null;
+  }
+
+  return socket;
+}
+
+export function getSocketError() {
+  return socketError;
+}
     console.log('[SOCKET] Enregistré en base:', data);
     registeredUserId = user.id;
   });
