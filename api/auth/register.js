@@ -30,7 +30,7 @@ export default async function handler(req, res) {
     }
 
     const cleanPhoneNum = normalizePhoneNumber(phoneNumber);
-    const existing = findUserByPhone(cleanPhoneNum);
+    const existing = await findUserByPhone(cleanPhoneNum);
 
     if (existing) {
       return res.status(409).json({
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
-    const newUser = createUser({
+    const newUser = await createUser({
       name: name.trim(),
       phoneNumber: cleanPhoneNum,
       passwordHash,
@@ -70,6 +70,22 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error('[REGISTER] Erreur:', err);
+
+    if (err.code === 11000) {
+      return res.status(409).json({
+        error: 'Ce numéro de téléphone est déjà utilisé',
+        code: 'phone_exists',
+        existingAccount: true,
+      });
+    }
+
+    if (err.code === 'NO_DATABASE') {
+      return res.status(503).json({
+        error: 'Base de données non configurée. Ajoutez MONGODB_URI sur Vercel.',
+        code: 'db_not_configured',
+      });
+    }
+
     return res.status(500).json({
       error: 'Erreur serveur',
       code: 'server_error',

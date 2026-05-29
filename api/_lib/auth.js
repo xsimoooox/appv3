@@ -25,8 +25,9 @@ export function verifyToken(token) {
 }
 
 export function userPayload(user) {
+  const id = user._id?.toString?.() || user._id || user.id;
   return {
-    id: String(user.id),
+    id: String(id),
     name: user.name,
     phoneNumber: user.phoneNumber,
     role: user.role,

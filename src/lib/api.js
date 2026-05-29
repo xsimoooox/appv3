@@ -19,17 +19,20 @@ export function setAuthToken(token) {
 
 export function getAuthErrorMessage(res, data) {
   if (data?.error) return data.error;
+  if (data?.code === 'db_not_configured') {
+    return 'Base de données non configurée sur le serveur (MONGODB_URI manquant sur Vercel).';
+  }
   if (res.status === 404) {
-    return 'Service inscription indisponible. Lancez le serveur : npm run server';
+    return 'Service inscription indisponible.';
   }
   if (res.status === 503) {
-    return 'Serveur en cours de démarrage. Réessayez dans 3 secondes.';
+    return data?.message || 'Serveur ou base de données indisponible. Réessayez dans quelques secondes.';
   }
   if (res.status === 409) {
     return 'Ce numéro est déjà enregistré.';
   }
   if (res.status >= 500) {
-    return 'Erreur serveur. Vérifiez que npm run server tourne.';
+    return 'Erreur serveur. Réessayez ou contactez le support.';
   }
   return 'Erreur lors de la création du compte';
 }

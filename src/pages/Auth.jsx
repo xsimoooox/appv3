@@ -133,7 +133,7 @@ export default function Auth() {
       const health = await checkApiHealth();
       if (!health.res.ok || !health.data?.ok) {
         setAuthError(
-          'Serveur ou base de données indisponible. Relancez : npm run server',
+          health.data?.message || 'Serveur ou base de données indisponible. Réessayez dans quelques secondes.',
         );
         setSubmitting(false);
         return;
@@ -149,7 +149,7 @@ export default function Auth() {
 
       await finishAuthSuccess(data);
     } catch {
-      setAuthError('Erreur réseau — vérifiez npm run server');
+      setAuthError('Erreur réseau — vérifiez votre connexion internet');
       setSubmitting(false);
     }
   };
@@ -164,7 +164,7 @@ export default function Auth() {
       const health = await checkApiHealth();
       if (!health.res.ok || !health.data?.ok) {
         setAuthError(
-          'Serveur ou base de données indisponible. Ouvrez un terminal et lancez : npm run server',
+          health.data?.message || 'Serveur ou base de données indisponible. Réessayez dans quelques secondes.',
         );
         setSubmitting(false);
         return;
@@ -195,7 +195,7 @@ export default function Auth() {
 
       await finishAuthSuccess(data);
     } catch {
-      setAuthError('Erreur réseau — vérifiez que npm run server est lancé');
+      setAuthError('Erreur réseau — vérifiez votre connexion internet');
       setSubmitting(false);
     }
   };

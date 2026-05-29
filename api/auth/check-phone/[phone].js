@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   try {
     const { phone } = req.query;
     const normalizedPhone = normalizePhoneNumber(phone);
-    const user = findUserByPhone(normalizedPhone);
+    const user = await findUserByPhone(normalizedPhone);
 
     if (!user) {
       return res.json({ exists: false, phoneNumber: normalizedPhone });

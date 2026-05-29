@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     }
 
     const cleanPhoneNum = normalizePhoneNumber(phoneNumber);
-    const user = findUserByPhone(cleanPhoneNum);
+    const user = await findUserByPhone(cleanPhoneNum);
 
     if (!user) {
       return res.status(404).json({ error: 'Aucun compte avec ce numéro' });
@@ -35,7 +35,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Mot de passe incorrect' });
     }
 
-    const updated = updateUser(user.id, {
+    const updated = await updateUser(user.id, {
       isOnline: true,
       lastSeen: new Date().toISOString(),
     });
@@ -49,6 +49,14 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error('[LOGIN] Erreur:', err);
+
+    if (err.code === 'NO_DATABASE') {
+      return res.status(503).json({
+        error: 'Base de données non configurée. Ajoutez MONGODB_URI sur Vercel.',
+        code: 'db_not_configured',
+      });
+    }
+
     return res.status(500).json({ error: 'Erreur serveur' });
   }
 }
