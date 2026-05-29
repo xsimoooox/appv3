@@ -12,8 +12,6 @@ dist
 dist-ssr
 *.local
 .env
-.env.production
-.env.local
 data/
 .env
 data/users.json
