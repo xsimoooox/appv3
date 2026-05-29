@@ -50,10 +50,10 @@ export default async function handler(req, res) {
   } catch (err) {
     console.error('[LOGIN] Erreur:', err);
 
-    if (err.code === 'NO_DATABASE') {
+    if (err.code === 'NO_DATABASE' || err.code === 'FIREBASE_ERROR') {
       return res.status(503).json({
-        error: 'Base de données non configurée. Ajoutez MONGODB_URI sur Vercel.',
-        code: 'db_not_configured',
+        error: err.message || 'Base de données indisponible.',
+        code: err.code || 'db_error',
       });
     }
 

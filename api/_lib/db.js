@@ -2,12 +2,15 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { connectMongo, User } from './mongo.js';
+import * as firebaseDb from './firebaseDb.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isVercel = Boolean(process.env.VERCEL);
 
-function useMongo() {
-  return Boolean(process.env.MONGODB_URI) || isVercel;
+function getBackend() {
+  if (process.env.MONGODB_URI) return 'mongodb';
+  if (isVercel || process.env.USE_FIREBASE_DB === '1') return 'firebase';
+  return 'file';
 }
 
 function toPlainUser(doc) {
@@ -54,17 +57,25 @@ function saveUsersToFile(users) {
 }
 
 async function ensureDb() {
-  if (useMongo()) {
+  const backend = getBackend();
+  if (backend === 'mongodb') {
     await connectMongo();
+  } else if (backend === 'firebase') {
+    await firebaseDb.checkFirebaseHealth();
   }
 }
 
 export async function findUserByPhone(phoneNumber) {
-  await ensureDb();
+  const backend = getBackend();
 
-  if (useMongo()) {
+  if (backend === 'mongodb') {
+    await connectMongo();
     const doc = await User.findOne({ phoneNumber });
     return toPlainUser(doc);
+  }
+
+  if (backend === 'firebase') {
+    return firebaseDb.findUserByPhone(phoneNumber);
   }
 
   const users = getUsersFromFile();
@@ -73,11 +84,16 @@ export async function findUserByPhone(phoneNumber) {
 }
 
 export async function findUserById(id) {
-  await ensureDb();
+  const backend = getBackend();
 
-  if (useMongo()) {
+  if (backend === 'mongodb') {
+    await connectMongo();
     const doc = await User.findById(id);
     return toPlainUser(doc);
+  }
+
+  if (backend === 'firebase') {
+    return firebaseDb.findUserById(id);
   }
 
   const users = getUsersFromFile();
@@ -86,11 +102,16 @@ export async function findUserById(id) {
 }
 
 export async function createUser(userData) {
-  await ensureDb();
+  const backend = getBackend();
 
-  if (useMongo()) {
+  if (backend === 'mongodb') {
+    await connectMongo();
     const doc = await User.create(userData);
     return toPlainUser(doc);
+  }
+
+  if (backend === 'firebase') {
+    return firebaseDb.createUser(userData);
   }
 
   const users = getUsersFromFile();
@@ -105,11 +126,16 @@ export async function createUser(userData) {
 }
 
 export async function updateUser(id, updates) {
-  await ensureDb();
+  const backend = getBackend();
 
-  if (useMongo()) {
+  if (backend === 'mongodb') {
+    await connectMongo();
     const doc = await User.findByIdAndUpdate(id, updates, { new: true });
     return toPlainUser(doc);
+  }
+
+  if (backend === 'firebase') {
+    return firebaseDb.updateUser(id, updates);
   }
 
   const users = getUsersFromFile();
@@ -122,15 +148,18 @@ export async function updateUser(id, updates) {
 
 export async function checkDbHealth() {
   try {
-    await ensureDb();
-    if (useMongo()) {
+    const backend = getBackend();
+    if (backend === 'mongodb') {
+      await connectMongo();
       await User.findOne().limit(1).lean();
+    } else if (backend === 'firebase') {
+      return firebaseDb.checkFirebaseHealth();
     }
-    return { ok: true, backend: useMongo() ? 'mongodb' : 'file' };
+    return { ok: true, backend };
   } catch (err) {
     return {
       ok: false,
-      backend: useMongo() ? 'mongodb' : 'file',
+      backend: getBackend(),
       error: err.message,
       code: err.code,
     };
