@@ -44,6 +44,7 @@ import {
   showLocalIncomingNotification,
   storeSessionCode,
 } from '../lib/firebaseRealtime';
+import { startContactCall } from '../lib/startContactCall';
 
 // Default mock contacts to populate Firestore initially
 const DEFAULT_CONTACTS = [
@@ -429,7 +430,7 @@ export default function Contacts() {
   const activeContact = contacts.find(c => c.id === id);
 
   const handleCallContact = useCallback(
-    (contact) => {
+    async (contact) => {
       if (!contact || contact.isBlocked) {
         showToast("⚠️ Impossible d'appeler ce contact");
         return;
@@ -440,9 +441,28 @@ export default function Contacts() {
         showToast(`📵 ${contact.firstName} ${contact.lastName} est occupé`);
         return;
       }
-      callUser(targetPhone, `${contact.firstName} ${contact.lastName}`.trim());
+
+      const contactName = `${contact.firstName} ${contact.lastName}`.trim();
+
+      try {
+        const result = await startContactCall({
+          role: 'deaf',
+          contactId: contact.id,
+          routePrefix: '/call',
+          targetPhone,
+          contactName,
+          socketCallUser: callUser,
+        });
+
+        if (result.mode === 'firebase') {
+          navigate(result.path);
+          showToast(`📞 Appel LSF démarré — code ${result.code}`);
+        }
+      } catch {
+        showToast('Impossible de démarrer l\'appel. Vérifiez votre connexion.');
+      }
     },
-    [callUser, getRealtimeStatus],
+    [callUser, getRealtimeStatus, navigate],
   );
 
   useEffect(() => {
@@ -1506,7 +1526,7 @@ export default function Contacts() {
           <button
             type="button"
             onClick={launchCall}
-            disabled={getRealtimeStatus(getContactPhone(activeContact), activeContact.status) !== 'online'}
+            disabled={getRealtimeStatus(getContactPhone(activeContact), activeContact.status) === 'busy'}
             className="w-full h-12 bg-[#16a34a] hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-[12px] font-extrabold text-[12px] shadow-md shadow-emerald-700/10 flex items-center justify-center gap-2 tracking-wide uppercase active:scale-[0.98] transition-transform cursor-pointer mb-5 shrink-0"
           >
             <Phone size={14} strokeWidth={2.5} /> Appeler en LSF

@@ -7,6 +7,7 @@ import {
   getClientUid,
   getFirebaseData,
   getSpeechLang,
+  joinRealtimeCall,
   pushFirebaseData,
   registerNotificationPreference,
   listenFirebaseValue,
@@ -35,6 +36,7 @@ import ZoneDActionBar from '../components/ZoneDActionBar';
 import SessionTopBar from '../components/SessionTopBar';
 import { useCallSystemContext } from '../context/CallSystemContext';
 import { getEntendantCallState } from '../lib/contactCallUi';
+import { startContactCall } from '../lib/startContactCall';
 import { getContactPhone, normalizePhoneNumber } from '../lib/phoneUtils';
 
 const CONTACTS_STORAGE_KEY = 'wakwak_contacts';
@@ -162,10 +164,39 @@ function ContactList() {
   const [query, setQuery] = useState('');
   const [contacts, setContacts] = useState(loadStoredContacts);
   const [listToast, setListToast] = useState(null);
+  const [incomingCall, setIncomingCall] = useState(null);
 
   useEffect(() => {
     setContacts(loadStoredContacts());
   }, [location.pathname]);
+
+  useEffect(() => {
+    let lastNotifiedCode = '';
+    const stopListening = listenFirebaseValue('calls', (calls) => {
+      if (!calls || typeof calls !== 'object') return;
+      const ringing = Object.entries(calls)
+        .filter(([, call]) => call?.status === 'ringing')
+        .map(([code, call]) => ({ code, ...call }))
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))[0];
+
+      if (!ringing) return;
+      setIncomingCall(ringing);
+      if (ringing.code !== lastNotifiedCode) {
+        lastNotifiedCode = ringing.code;
+        showLocalIncomingNotification({
+          code: ringing.code,
+          callerName: ringing.callerName || 'Personne sourde',
+        });
+      }
+    });
+    return stopListening;
+  }, []);
+
+  useEffect(() => {
+    if (!incomingCall) return undefined;
+    const timer = setTimeout(() => setIncomingCall(null), 30000);
+    return () => clearTimeout(timer);
+  }, [incomingCall]);
 
   useEffect(() => {
     if (!activeCall?.withPhone) return;
@@ -180,7 +211,7 @@ function ContactList() {
     return 'Hors ligne';
   };
 
-  const handleCallContact = (contact, event) => {
+  const handleCallContact = async (contact, event) => {
     event?.stopPropagation?.();
     const targetPhone = getContactPhone(contact);
     const status = getRealtimeStatus(targetPhone, contact.status);
@@ -189,7 +220,26 @@ function ContactList() {
       setTimeout(() => setListToast(null), 2500);
       return;
     }
-    callUser(targetPhone, contact.name);
+
+    try {
+      const result = await startContactCall({
+        role: 'hearing',
+        contactId: contact.id,
+        routePrefix: '/entendant/call',
+        targetPhone,
+        contactName: contact.name,
+        socketCallUser: callUser,
+      });
+
+      if (result.mode === 'firebase') {
+        navigate(result.path);
+        setListToast(`📞 Appel démarré — code ${result.code}`);
+        setTimeout(() => setListToast(null), 3000);
+      }
+    } catch {
+      setListToast('Impossible de démarrer l\'appel');
+      setTimeout(() => setListToast(null), 2500);
+    }
   };
 
   const filteredContacts = useMemo(() => {
@@ -204,6 +254,44 @@ function ContactList() {
 
   return (
     <div className="w-full max-w-md mx-auto min-h-screen bg-[#f5f5f5] text-[#111111] pb-[88px] select-none animate-fade-in">
+      {incomingCall && (
+        <div className="fixed top-3 left-1/2 z-[10001] w-[calc(100%-24px)] max-w-sm -translate-x-1/2 rounded-[14px] border border-[#6366f1] bg-[#f5f0ff] p-3 shadow-xl animate-fade-in">
+          <div className="flex items-start gap-2">
+            <PhoneIncoming className="shrink-0 text-[#6366f1]" size={22} strokeWidth={2.5} />
+            <div className="min-w-0 flex-1">
+              <div className="text-[12px] font-extrabold">Appel entrant LSF</div>
+              <div className="mt-0.5 text-[10px] font-bold text-[#777777]">
+                Code : <span className="text-[#6366f1]">{incomingCall.code}</span> — {incomingCall.callerName || 'Personne sourde'}
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const target = contacts[0]?.id || 'amina';
+                navigate(`/entendant/call/${target}?code=${encodeURIComponent(incomingCall.code)}`);
+                setIncomingCall(null);
+              }}
+              className="h-8 flex-1 rounded-[9px] bg-[#16a34a] text-[11px] font-extrabold text-white active:scale-95"
+            >
+              Rejoindre
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (incomingCall?.code) {
+                  endRealtimeCall(incomingCall.code).catch(() => {});
+                }
+                setIncomingCall(null);
+              }}
+              className="h-8 flex-1 rounded-[9px] bg-[#ef4444] text-[11px] font-extrabold text-white active:scale-95"
+            >
+              Refuser
+            </button>
+          </div>
+        </div>
+      )}
       {listToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[10001] px-4 py-2 rounded-full bg-[#6366f1] text-white text-[11px] font-bold shadow-lg">
           {listToast}
@@ -439,15 +527,38 @@ function ContactDetail({ contact, onDelete, onToggleFavorite, onShare }) {
   const navigate = useNavigate();
   const { callUser, getRealtimeStatus } = useCallSystemContext();
   const liveStatus = getRealtimeStatus(getContactPhone(contact), contact.status);
+  const [detailToast, setDetailToast] = useState(null);
 
-  const handleCallContact = () => {
+  const handleCallContact = async () => {
     const targetPhone = getContactPhone(contact);
-    if (liveStatus !== 'online') return;
-    callUser(targetPhone, contact.name);
+    if (liveStatus === 'busy') return;
+
+    try {
+      const result = await startContactCall({
+        role: 'hearing',
+        contactId: contact.id,
+        routePrefix: '/entendant/call',
+        targetPhone,
+        contactName: contact.name,
+        socketCallUser: callUser,
+      });
+
+      if (result.mode === 'firebase') {
+        navigate(result.path);
+      }
+    } catch {
+      setDetailToast('Impossible de démarrer l\'appel');
+      setTimeout(() => setDetailToast(null), 2500);
+    }
   };
 
   return (
     <div className="w-full max-w-md mx-auto min-h-screen bg-[#f5f5f5] text-[#111111] pb-[88px] select-none animate-fade-in">
+      {detailToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[10001] px-4 py-2 rounded-full bg-red-500 text-white text-[11px] font-bold shadow-lg">
+          {detailToast}
+        </div>
+      )}
       <button
         onClick={() => navigate('/entendant/contacts')}
         className="flex items-center gap-1 text-[11px] text-[#6366f1] font-bold px-3.5 py-3"
@@ -471,7 +582,7 @@ function ContactDetail({ contact, onDelete, onToggleFavorite, onShare }) {
       <button
         type="button"
         onClick={handleCallContact}
-        disabled={liveStatus !== 'online'}
+        disabled={liveStatus === 'busy'}
         className="w-[calc(100%-28px)] mx-3.5 mt-3 rounded-[12px] bg-[#16a34a] disabled:opacity-50 disabled:cursor-not-allowed p-[11px] text-white text-[12px] font-bold flex items-center justify-center gap-2 active:scale-[0.98]"
       >
         <Phone size={14} strokeWidth={2.5} />
@@ -633,6 +744,9 @@ function useAudioVisualizer(canvasRef, micActive) {
 
 function CallScreen({ contact }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const codeFromUrl = new URLSearchParams(location.search).get('code');
+  const isJoiningExisting = Boolean(codeFromUrl);
   const { endCall, activeCall, receivedText, emitVoiceText, canSpeakTurn } = useCallSystemContext();
   const canvasRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -651,7 +765,7 @@ function CallScreen({ contact }) {
   const [callToast, setCallToast] = useState(null);
   const [language, setLanguage] = useState('Français');
   const [sessionCode] = useState(() => {
-    const code = generateSessionCode();
+    const code = (codeFromUrl || generateSessionCode()).toUpperCase();
     storeSessionCode(code);
     return code;
   });
@@ -701,18 +815,22 @@ function CallScreen({ contact }) {
     mountedRef.current = true;
     const uid = getClientUid('hearing');
     registerNotificationPreference(uid).catch(() => {});
-    createRealtimeCall({
-      code: sessionCode,
-      callerUid: uid,
-      callerName: 'Personne entendante',
-      lang: speechLang,
-    })
-      .then(() => {
-        showLocalIncomingNotification({ code: sessionCode, callerName: 'Personne entendante' });
-      })
-      .catch(() => setSpeechStatus('firebase indisponible'));
+
+    const setupCall = isJoiningExisting
+      ? joinRealtimeCall({ code: sessionCode, uid })
+      : createRealtimeCall({
+          code: sessionCode,
+          callerUid: uid,
+          callerName: 'Personne entendante',
+          lang: speechLang,
+        }).then(() => {
+          showLocalIncomingNotification({ code: sessionCode, callerName: 'Personne entendante' });
+        });
+
+    setupCall.catch(() => setSpeechStatus('firebase indisponible'));
 
     const reminder = setInterval(async () => {
+      if (isJoiningExisting) return;
       try {
         const call = await getFirebaseData(`calls/${sessionCode}`);
         if (call?.status === 'ringing') {
@@ -756,7 +874,7 @@ function CallScreen({ contact }) {
       }
       endRealtimeCall(sessionCode).catch(() => {});
     };
-  }, [sessionCode]);
+  }, [sessionCode, isJoiningExisting, speechLang]);
 
   useEffect(() => {
     const timer = setInterval(() => setSeconds((value) => value + 1), 1000);

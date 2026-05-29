@@ -142,7 +142,7 @@ export function listenFirebaseValue(path, onValue, onConnection) {
   return () => source.close();
 }
 
-export async function createRealtimeCall({ code, callerUid, callerName, lang }) {
+export async function createRealtimeCall({ code, callerUid, callerName, lang, notifyAudience = 'deaf' }) {
   const timestamp = Date.now();
   storeSessionCode(code);
   await setFirebaseData(`sessions/${code}`, {
@@ -166,12 +166,18 @@ export async function createRealtimeCall({ code, callerUid, callerName, lang }) 
     lang,
     createdAt: timestamp,
   });
-  await pushFirebaseData('notifications/deaf_user', {
+  const notification = {
     code,
     callerName,
     timestamp,
     status: 'pending',
-  });
+  };
+  if (notifyAudience === 'deaf' || notifyAudience === 'both') {
+    await pushFirebaseData('notifications/deaf_user', notification);
+  }
+  if (notifyAudience === 'hearing' || notifyAudience === 'both') {
+    await pushFirebaseData('notifications/hearing_user', notification);
+  }
 }
 
 export async function joinRealtimeCall({ code, uid }) {
