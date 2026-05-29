@@ -1,6 +1,7 @@
 import { normalizePhoneNumber } from './phoneUtils';
 
-const API_BASE = import.meta.env.VITE_API_URL || '';
+/** Préfixe API : `/api` en prod (Vercel) et en dev (proxy Vite). */
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 export function getAuthToken() {
   return localStorage.getItem('token') || localStorage.getItem('wakwak_token');
@@ -70,16 +71,16 @@ export async function apiFetch(path, options = {}) {
 }
 
 export async function checkApiHealth() {
-  return apiFetch('/api/health');
+  return apiFetch('/health');
 }
 
 export async function checkPhoneExists(phoneNumber) {
   const phone = normalizePhoneNumber(phoneNumber);
-  return apiFetch(`/api/auth/check-phone/${encodeURIComponent(phone)}`);
+  return apiFetch(`/auth/check-phone/${encodeURIComponent(phone)}`);
 }
 
 export async function registerAccount({ name, phoneNumber, password, role }) {
-  return apiFetch('/api/auth/register', {
+  return apiFetch('/auth/register', {
     method: 'POST',
     body: JSON.stringify({
       name,
@@ -91,7 +92,7 @@ export async function registerAccount({ name, phoneNumber, password, role }) {
 }
 
 export async function loginAccount({ phoneNumber, password }) {
-  return apiFetch('/api/auth/login', {
+  return apiFetch('/auth/login', {
     method: 'POST',
     body: JSON.stringify({
       phoneNumber: normalizePhoneNumber(phoneNumber),
@@ -102,5 +103,5 @@ export async function loginAccount({ phoneNumber, password }) {
 
 export async function findUserByPhone(phoneNumber) {
   const phone = normalizePhoneNumber(phoneNumber);
-  return apiFetch(`/api/users/find/${encodeURIComponent(phone)}`);
+  return apiFetch(`/users/find/${encodeURIComponent(phone)}`);
 }

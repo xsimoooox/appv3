@@ -1,12 +1,11 @@
 {
-  "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "routes": [
-    { "src": "/socket.io(.*)", "destination": "/socket.io$1" },
-    { "src": "/api/(.*)", "dest": "/api/$1" },
-    { "src": "/", "dest": "/index.html" },
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    {
+      "source": "/((?!api/|assets/|icons/|favicon\\.svg|manifest\\.json|sw\\.js).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wakwak-v2';
+const CACHE_NAME = 'wakwak-v3';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 const DEFAULT_API = 'http://localhost:3001';
@@ -38,7 +38,13 @@ self.addEventListener('fetch', (e) => {
           });
           return response;
         })
-        .catch(() => caches.match('/index.html'));
+        .catch(() => {
+          const url = new URL(e.request.url);
+          if (url.pathname.startsWith('/assets/') || url.pathname.endsWith('.js')) {
+            return Response.error();
+          }
+          return caches.match('/index.html');
+        });
     }),
   );
 });
