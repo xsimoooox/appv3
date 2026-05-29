@@ -30,6 +30,8 @@ import {
 } from 'lucide-react';
 import ZoneDActionBar from '../components/ZoneDActionBar';
 import SessionTopBar from '../components/SessionTopBar';
+import AvatarStage from '../components/AvatarStage';
+import AlexStage, { applyAlexVideoStyles } from '../components/AlexStage';
 import { useCallSystemContext } from '../context/CallSystemContext';
 import { useImmersiveSession } from '../context/ImmersiveSessionContext';
 import { getContactCallState } from '../lib/contactCallUi';
@@ -218,7 +220,9 @@ export default function Contacts() {
   const [signingActive, setSigningActive] = useState(false);
   const [pulseGlove, setPulseGlove] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [avatarMode, setAvatarMode] = useState('alex'); // alex or frizitta
+  const [avatarMode, setAvatarMode] = useState(
+    () => localStorage.getItem('avatarChoice') || 'alex',
+  );
   const [transcriptHistory, setTranscriptHistory] = useState([]);
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -630,47 +634,58 @@ export default function Contacts() {
 
   const startAlexPlayback = (sequence) => {
     stopAlexPlayback();
+
     const videoA = videoARef.current;
     const videoB = videoBRef.current;
     if (!videoA || !videoB) return;
-    
+
     alexPlaybackRef.current.sequence = sequence;
     alexPlaybackRef.current.index = 0;
     alexPlaybackRef.current.activeVideo = 'A';
     alexPlaybackRef.current.active = true;
-    
+
+    applyAlexVideoStyles(videoA);
+    applyAlexVideoStyles(videoB);
+    videoA.src = '';
+    videoB.src = '';
+
     const playNextAlex = () => {
       if (!alexPlaybackRef.current.active) return;
       const seqIndex = alexPlaybackRef.current.index;
       const seq = alexPlaybackRef.current.sequence;
+
       if (seqIndex >= seq.length) {
         setCurrentAlexWord('');
         return;
       }
-      
+
       const currentVideoId = alexPlaybackRef.current.activeVideo;
       const currentVideo = currentVideoId === 'A' ? videoA : videoB;
       const nextVideo = currentVideoId === 'A' ? videoB : videoA;
-      
+
       const currentItem = seq[seqIndex];
       setCurrentAlexWord(currentItem.word.toUpperCase());
-      
+
       if (seqIndex + 1 < seq.length) {
+        applyAlexVideoStyles(nextVideo);
         nextVideo.src = seq[seqIndex + 1].url;
+        nextVideo.preload = 'auto';
         nextVideo.load();
       }
-      
+
       currentVideo.ontimeupdate = () => {
         if (currentVideo.duration - currentVideo.currentTime < 0.1) {
           currentVideo.ontimeupdate = null;
           alexPlaybackRef.current.index++;
+
           if (alexPlaybackRef.current.index < seq.length) {
             nextVideo.style.opacity = '1';
             nextVideo.style.zIndex = '2';
             currentVideo.style.opacity = '0';
             currentVideo.style.zIndex = '1';
+            nextVideo.playbackRate = 1.0;
             nextVideo.play();
-            
+
             const nextActiveId = currentVideoId === 'A' ? 'B' : 'A';
             alexPlaybackRef.current.activeVideo = nextActiveId;
             setActiveVideo(nextActiveId);
@@ -680,10 +695,13 @@ export default function Contacts() {
           }
         }
       };
-      
+
+      applyAlexVideoStyles(currentVideo);
       currentVideo.src = currentItem.url;
+      currentVideo.playbackRate = 1.0;
       currentVideo.play();
     };
+
     playNextAlex();
   };
 
@@ -774,6 +792,12 @@ export default function Contacts() {
       stopAlexPlayback();
     };
   }, [screen, activeContact?.id, location.search]);
+
+  useEffect(() => {
+    if (screen !== 'call' || avatarMode !== 'alex') return;
+    applyAlexVideoStyles(videoARef.current);
+    applyAlexVideoStyles(videoBRef.current);
+  }, [screen, avatarMode]);
 
   useEffect(() => {
     if (screen !== 'call' || !activeSessionCode) return undefined;
@@ -1627,100 +1651,76 @@ export default function Contacts() {
             </div>
           </div>
 
-          {/* ZONE B — CADRE AVATAR — flex-grow */}
-          <div className="flex-grow bg-[#F0F2F5] px-3 py-2 flex flex-col min-h-0 relative">
-            <div className="flex-1 w-full bg-white border border-[#E5E7EB] rounded-[16px] relative overflow-hidden flex items-center justify-center shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-              
-              {/* WHITE INTERIOR = 3D AVATAR CANVAS RENDERING */}
-              <div 
-                className="w-full h-full bg-[#ffffff] absolute inset-0 z-0 flex items-center justify-center"
-                style={{
-                  backgroundImage: 'radial-gradient(circle, transparent 20%, #ffffff 85%), linear-gradient(rgba(79, 70, 229, 0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(79, 70, 229, 0.06) 1px, transparent 1px)',
-                  backgroundSize: '100% 100%, 16px 16px, 16px 16px',
-                  backgroundPosition: 'center'
-                }}
-              >
-                
-                {/* EFFET LUMIÈRE INTERNE */}
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#0f0120]/10 to-[#2d1b69]/5 z-[1]" />
-
-                {/* Simulated rendering avatar */}
-                {avatarMode === 'frizitta' ? (
-                  <div className="w-full h-full flex items-center justify-center bg-transparent" id="call-frizitta">
-                    <img 
-                      src={currentLetterUrl || (frizittaDb ? frizittaDb['NEUTRE'] || '' : '')} 
-                      alt="LSF avatar letter"
-                      className="max-h-[100%] object-contain select-none z-10 filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.15)]"
-                      style={{ objectFit: 'contain !important' }}
+          {/* ZONE B — CADRE AVATAR (même cadrage / affichage que Rencontre) */}
+          <div className="flex min-h-0 flex-grow flex-col items-center justify-center gap-4 overflow-hidden bg-[#F9FAFB] px-3 py-2">
+            <div
+              className={`avatar-container${
+                avatarMode === 'alex'
+                  ? ' avatar-container--alex'
+                  : ' avatar-container--frizitta'
+              }`}
+            >
+              <div className="avatar-inner">
+                {avatarMode === 'frizitta' && (
+                  <div
+                    className="flex h-full w-full items-center justify-center overflow-hidden"
+                    id="frizitta-player"
+                  >
+                    <AvatarStage
+                      src={
+                        currentLetterUrl ||
+                        (frizittaDb ? frizittaDb.NEUTRE || '' : '')
+                      }
                     />
-                  </div>
-                ) : (
-                  <div className="w-full h-full relative bg-transparent z-10" id="call-alex">
-                    <video 
-                      ref={videoARef}
-                      autoPlay 
-                      muted 
-                      playsInline 
-                      className="absolute inset-0 w-full h-full object-contain"
-                      style={{ 
-                        opacity: activeVideo === 'A' ? 1 : 0, 
-                        zIndex: activeVideo === 'A' ? 2 : 1,
-                        objectFit: 'contain !important'
-                      }}
-                    />
-                    <video 
-                      ref={videoBRef}
-                      autoPlay 
-                      muted 
-                      playsInline 
-                      className="absolute inset-0 w-full h-full object-contain"
-                      style={{ 
-                        opacity: activeVideo === 'B' ? 1 : 0, 
-                        zIndex: activeVideo === 'B' ? 2 : 1,
-                        objectFit: 'contain !important'
-                      }}
-                    />
-                    
-                    {/* Fallback silhouette if videos loading */}
-                    {!currentAlexWord && (
-                      <div className="absolute inset-0 flex items-center justify-center text-[100px] text-slate-100/20 select-none z-[0] filter blur-[0.5px]">
-                        👤
-                      </div>
-                    )}
                   </div>
                 )}
-                
-              </div>
 
-              {/* TOP LEFT: CHANGE AVATAR BUTTON */}
+                {avatarMode === 'alex' && (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <AlexStage
+                      videoARef={videoARef}
+                      videoBRef={videoBRef}
+                      activeVideo={activeVideo}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="avatar-actions shrink-0">
               <button
+                type="button"
                 onClick={() => {
                   stopFrizittaPlayback();
                   stopAlexPlayback();
-                  setAvatarMode(prev => prev === 'alex' ? 'frizitta' : 'alex');
-                  showToast(`🔄 Avatar commuté en mode ${avatarMode === 'alex' ? 'lettres' : 'mots'}`);
+                  const next = avatarMode === 'alex' ? 'frizitta' : 'alex';
+                  localStorage.setItem('avatarChoice', next);
+                  setAvatarMode(next);
+                  showToast(`🔄 Avatar ${next === 'alex' ? 'ALEX' : 'FRIZITTA'}`);
                 }}
-                className="absolute top-3 left-3 z-20 text-[9px] bg-white/80 text-[#4F46E5] hover:bg-white active:scale-95 border border-[#E5E7EB] backdrop-blur-[4px] px-2.5 py-1 rounded-lg cursor-pointer font-bold select-none shadow-sm"
+                className="avatar-action-btn avatar-action-btn--avatar"
+                aria-label="Changer d'avatar"
               >
-                <UserRound size={12} strokeWidth={2.25} className="inline mr-0.5" />
-                Avatar
+                <UserRound size={22} strokeWidth={2.25} />
+                <span>Avatar</span>
               </button>
+            </div>
 
-              {/* MIDDLE BOTTOM: WORD / LETTER PREVIEW OVERLAY */}
-              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none select-none max-w-[200px] w-full text-center">
+            {(avatarMode === 'frizitta' && currentLetter) || (avatarMode === 'alex' && currentAlexWord) ? (
+              <p className="m-0 text-center text-[9px] font-bold text-[#6B7280] select-none px-2">
                 {avatarMode === 'frizitta' && currentLetter && (
-                  <div className="bg-white/90 backdrop-blur rounded-[8px] border border-[#E5E7EB] px-2 py-1 text-[9px] font-bold text-[#1F2937] shadow-sm">
-                    Lettre : <span className="text-violet-400">[{currentLetter}]</span> ({currentWord})
-                  </div>
+                  <>
+                    Lettre : <span className="text-violet-500">[{currentLetter}]</span>
+                    {currentWord ? ` (${currentWord})` : ''}
+                  </>
                 )}
                 {avatarMode === 'alex' && currentAlexWord && (
-                  <div className="bg-slate-900/80 backdrop-blur rounded-[8px] border border-slate-750 px-2 py-1 text-[9px] font-bold text-slate-200 uppercase">
+                  <>
                     Mot : <span className="text-[#4F46E5]">{currentAlexWord}</span>
-                  </div>
+                  </>
                 )}
-              </div>
-
-            </div>
+              </p>
+            ) : null}
           </div>
 
           {/* ZONE C — TEXTE TRADUIT — min 58px */}
