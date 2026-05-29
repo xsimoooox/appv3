@@ -64,7 +64,7 @@ self.addEventListener('message', (e) => {
       badge: '/icons/badge-72.png',
       vibrate: [400, 200, 400, 200, 400, 200, 400],
       tag: `wakwak-call-${code}`,
-      renotify: true,
+      renotify: false,
       requireInteraction: true,
       silent: false,
       data: { codeSession: code, acceptUrl, type: 'incoming_call', role },

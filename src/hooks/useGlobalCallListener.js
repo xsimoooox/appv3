@@ -8,11 +8,18 @@ import {
   storeSessionCode,
 } from '../lib/firebaseRealtime';
 import { notifyIncomingCall, stopIncomingRingtone } from '../lib/callAlerts';
+import {
+  buildCallJoinPath,
+  findContactIdForIncoming,
+  invitePathForPhone,
+  isInviteValid,
+  markInviteNotified,
+  wasInviteNotified,
+} from '../lib/callInvite';
 import { getWakwakUser } from '../lib/wakwakUser';
 import { normalizePhoneNumber } from '../lib/phoneUtils';
 
 const DISMISSED_KEY = 'wakwak_dismissed_calls';
-const RINGING_MAX_AGE_MS = 15 * 60 * 1000;
 
 function loadDismissed() {
   try {
@@ -31,53 +38,20 @@ function dismissCode(code) {
 export function useGlobalCallListener() {
   const navigate = useNavigate();
   const [incomingCall, setIncomingCall] = useState(null);
+  const [accepting, setAccepting] = useState(false);
   const ringingRef = useRef(null);
   const dismissedRef = useRef(loadDismissed());
 
   const user = getWakwakUser();
+  const myPhone = normalizePhoneNumber(user?.phoneNumber || '');
   const myUidRef = useRef(
     user?.id || getClientUid(user?.role === 'hearing' ? 'hearing' : 'deaf'),
   );
   const myRoleRef = useRef(user?.role === 'hearing' ? 'hearing' : 'deaf');
 
-  const buildAcceptUrl = useCallback((call) => {
-    const role = myRoleRef.current;
-    const code = call.code;
-    const contactId = call.targetContactId || (role === 'hearing' ? 'amina' : 'c1');
-    const prefix = role === 'hearing' ? '/entendant/call' : '/call';
-    return `${prefix}/${contactId}?code=${encodeURIComponent(code)}`;
-  }, []);
-
-  const handleRingingCall = useCallback(
-    (code, call) => {
-      if (!call || call.status !== 'ringing') return;
-      if (Date.now() - (call.createdAt || 0) > RINGING_MAX_AGE_MS) return;
-      if (dismissedRef.current.has(code)) return;
-
-      const callerUid = String(call.caller || '');
-      if (callerUid && callerUid === String(myUidRef.current)) return;
-
-      const payload = { code, ...call };
-      const same = ringingRef.current?.code === code;
-      ringingRef.current = payload;
-      setIncomingCall(payload);
-
-      if (!same) {
-        const acceptUrl = buildAcceptUrl(payload);
-        notifyIncomingCall({
-          code,
-          callerName: call.callerName,
-          acceptUrl,
-          role: myRoleRef.current,
-        });
-      }
-    },
-    [buildAcceptUrl],
-  );
-
-  useEffect(() => {
-    const stopCalls = listenFirebaseValue('calls', (calls) => {
-      if (!calls || typeof calls !== 'object') {
+  const processInvites = useCallback(
+    (invitesMap) => {
+      if (!invitesMap || typeof invitesMap !== 'object') {
         if (ringingRef.current) {
           ringingRef.current = null;
           setIncomingCall(null);
@@ -86,69 +60,100 @@ export function useGlobalCallListener() {
         return;
       }
 
-      const entries = Object.entries(calls)
-        .map(([code, call]) => ({ code, ...call }))
-        .filter((c) => c.status === 'ringing')
+      const valid = Object.entries(invitesMap)
+        .map(([code, invite]) => ({ code, ...invite }))
+        .filter((inv) => isInviteValid(inv))
+        .filter((inv) => !dismissedRef.current.has(inv.code))
+        .filter((inv) => String(inv.callerUid || inv.caller || '') !== String(myUidRef.current))
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
-      const latest = entries[0];
-      if (latest) {
-        handleRingingCall(latest.code, latest);
+      const latest = valid[0];
+      if (!latest) {
+        if (ringingRef.current) {
+          ringingRef.current = null;
+          setIncomingCall(null);
+          stopIncomingRingtone();
+        }
         return;
       }
 
-      if (ringingRef.current) {
-        ringingRef.current = null;
-        setIncomingCall(null);
-        stopIncomingRingtone();
+      const payload = {
+        ...latest,
+        expiresAt: latest.expiresAt || (latest.createdAt || 0) + 5 * 60 * 1000,
+      };
+      ringingRef.current = payload;
+      setIncomingCall(payload);
+
+      if (!wasInviteNotified(latest.code)) {
+        markInviteNotified(latest.code);
+        const contactId = findContactIdForIncoming(
+          myRoleRef.current,
+          latest.callerPhone,
+          latest.targetContactId,
+        );
+        const acceptUrl = buildCallJoinPath(myRoleRef.current, contactId, latest.code);
+        notifyIncomingCall({
+          code: latest.code,
+          callerName: latest.callerName,
+          acceptUrl,
+          role: myRoleRef.current,
+        });
       }
-    });
+    },
+    [],
+  );
 
-    const notifyPath =
-      myRoleRef.current === 'hearing' ? 'notifications/hearing_user' : 'notifications/deaf_user';
+  useEffect(() => {
+    if (!myPhone) return undefined;
 
-    const stopNotify = listenFirebaseValue(notifyPath, (items) => {
-      if (!items || typeof items !== 'object') return;
-      const list = Object.values(items)
-        .filter((n) => n?.status === 'pending' && n?.code)
-        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-      const latest = list[0];
-      if (!latest) return;
-      handleRingingCall(latest.code, {
-        status: 'ringing',
-        callerName: latest.callerName,
-        createdAt: latest.timestamp,
-        caller: latest.callerUid,
-        targetContactId: latest.targetContactId,
-      });
-    });
+    const path = invitePathForPhone(myPhone);
+    if (!path) return undefined;
+
+    const stopInvites = listenFirebaseValue(path, processInvites);
 
     return () => {
-      stopCalls();
-      stopNotify();
+      stopInvites();
       stopIncomingRingtone();
     };
-  }, [handleRingingCall]);
+  }, [myPhone, processInvites]);
 
   const acceptIncomingCall = useCallback(async () => {
     const call = ringingRef.current;
-    if (!call?.code) return;
+    if (!call?.code || accepting) return;
 
+    setAccepting(true);
     stopIncomingRingtone();
+
     const uid = getClientUid(myRoleRef.current === 'hearing' ? 'hearing' : 'deaf');
+    const calleeName = getWakwakUser()?.name || '';
     storeSessionCode(call.code);
 
     try {
-      await joinRealtimeCall({ code: call.code, uid });
+      await joinRealtimeCall({ code: call.code, uid, calleeName });
     } catch {
-      /* session peut déjà exister */
+      /* déjà joint */
     }
 
+    dismissCode(call.code);
     dismissedRef.current.add(call.code);
+
+    const contactId = findContactIdForIncoming(
+      myRoleRef.current,
+      call.callerPhone,
+      call.targetContactId,
+    );
+    const joinPath = buildCallJoinPath(myRoleRef.current, contactId, call.code);
+
     setIncomingCall(null);
     ringingRef.current = null;
-    navigate(buildAcceptUrl(call));
-  }, [navigate, buildAcceptUrl]);
+    setAccepting(false);
+
+    try {
+      navigate(joinPath);
+    } catch {
+      window.location.assign(joinPath);
+    }
+  }, [navigate, accepting]);
 
   const rejectIncomingCall = useCallback(async () => {
     const call = ringingRef.current;
@@ -165,5 +170,6 @@ export function useGlobalCallListener() {
     firebaseIncomingCall: incomingCall,
     acceptFirebaseIncomingCall: acceptIncomingCall,
     rejectFirebaseIncomingCall: rejectIncomingCall,
+    acceptingIncomingCall: accepting,
   };
 }

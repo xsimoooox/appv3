@@ -142,19 +142,31 @@ export function listenFirebaseValue(path, onValue, onConnection) {
   return () => source.close();
 }
 
+const CALL_INVITE_TTL_MS = 5 * 60 * 1000;
+
+function inviteKeyFromPhone(phone) {
+  const trimmed = String(phone || '').trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('+')) {
+    return encodeURIComponent(`+${trimmed.replace(/\D/g, '')}`);
+  }
+  return encodeURIComponent(trimmed);
+}
+
 export async function createRealtimeCall({
   code,
   callerUid,
   callerName,
   lang,
-  notifyAudience = 'deaf',
   callerPhone = '',
   callerRole = 'deaf',
   targetContactId = '',
   targetPhone = '',
 }) {
   const timestamp = Date.now();
+  const expiresAt = timestamp + CALL_INVITE_TTL_MS;
   storeSessionCode(code);
+
   await setFirebaseData(`sessions/${code}`, {
     transcript: {
       text: '',
@@ -167,10 +179,13 @@ export async function createRealtimeCall({
       A: callerUid,
       B: null,
     },
+    calleeJoined: false,
     createdAt: timestamp,
     lastActivity: timestamp,
+    expiresAt,
   });
-  await setFirebaseData(`calls/${code}`, {
+
+  const callPayload = {
     caller: callerUid,
     callerName,
     callerPhone,
@@ -180,32 +195,32 @@ export async function createRealtimeCall({
     status: 'ringing',
     lang,
     createdAt: timestamp,
+    expiresAt,
     lastActivity: timestamp,
-  });
-  const notification = {
-    code,
-    callerName,
-    callerUid,
-    callerPhone,
-    callerRole,
-    targetContactId,
-    targetPhone,
-    timestamp,
-    status: 'pending',
+    calleeJoined: false,
   };
-  if (notifyAudience === 'deaf' || notifyAudience === 'both') {
-    await pushFirebaseData('notifications/deaf_user', notification);
-  }
-  if (notifyAudience === 'hearing' || notifyAudience === 'both') {
-    await pushFirebaseData('notifications/hearing_user', notification);
+
+  await setFirebaseData(`calls/${code}`, callPayload);
+
+  if (targetPhone) {
+    const phoneKey = inviteKeyFromPhone(targetPhone);
+    await setFirebaseData(`invites/${phoneKey}/${code}`, {
+      ...callPayload,
+      code,
+      callerUid,
+    });
   }
 }
 
-export async function joinRealtimeCall({ code, uid }) {
+export async function joinRealtimeCall({ code, uid, calleeName = '' }) {
   storeSessionCode(code);
   const now = Date.now();
+  const name = calleeName || 'Interlocuteur';
   await updateFirebaseData(`sessions/${code}`, {
-    participants: { B: uid },
+    participants: { B: uid, BJoinedAt: now },
+    calleeJoined: true,
+    calleeName: name,
+    calleeJoinedAt: now,
     status: 'active',
     lastActivity: now,
   });
@@ -213,6 +228,18 @@ export async function joinRealtimeCall({ code, uid }) {
     status: 'active',
     lastActivity: now,
     joinedAt: now,
+    calleeJoined: true,
+    calleeName: name,
+    calleeJoinedAt: now,
+  });
+}
+
+export async function clearCallInvite(targetPhone, code) {
+  const phoneKey = inviteKeyFromPhone(targetPhone);
+  if (!phoneKey || !code) return;
+  await updateFirebaseData(`invites/${phoneKey}/${code}`, {
+    status: 'ended',
+    endedAt: Date.now(),
   });
 }
 
@@ -239,8 +266,9 @@ export async function sendTranscript({ code, text, isFinal, lang }) {
 
 export async function endRealtimeCall(code) {
   if (!code) return;
-  await updateFirebaseData(`calls/${code}`, { status: 'ended' });
-  await updateFirebaseData(`sessions/${code}`, { status: 'ended' });
+  const now = Date.now();
+  await updateFirebaseData(`calls/${code}`, { status: 'ended', endedAt: now });
+  await updateFirebaseData(`sessions/${code}`, { status: 'ended', endedAt: now });
 }
 
 export async function registerNotificationPreference(uid) {

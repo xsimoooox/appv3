@@ -12,10 +12,11 @@ import {
   registerNotificationPreference,
   listenFirebaseValue,
   sendTranscript,
-  showLocalIncomingNotification,
   storeSessionCode,
   touchRealtimeCall,
 } from '../lib/firebaseRealtime';
+import { useCalleeJoinedSignal } from '../hooks/useCalleeJoinedSignal';
+import CalleeJoinedBanner from '../components/CalleeJoinedBanner';
 import { getPresenceLabel } from '../lib/contactCallUi';
 import { setPresenceAvailable, setPresenceInCall } from '../lib/presenceFirebase';
 import { getWakwakUser } from '../lib/wakwakUser';
@@ -715,6 +716,7 @@ function CallScreen({ contact }) {
   const [speechStatus, setSpeechStatus] = useState('initialisation');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const speechLang = getSpeechLang(language);
+  const { calleeJoined, calleeJoinedName } = useCalleeJoinedSignal(sessionCode);
 
   const showCallToast = (message) => {
     setCallToast(message);
@@ -757,36 +759,34 @@ function CallScreen({ contact }) {
     const uid = getClientUid('hearing');
     registerNotificationPreference(uid).catch(() => {});
 
-    const setupCall = isJoiningExisting
-      ? joinRealtimeCall({ code: sessionCode, uid })
-      : createRealtimeCall({
+    const wakwakUser = getWakwakUser();
+    const callerName = wakwakUser?.name || 'Personne entendante';
+    const targetPhone = getContactPhone(contact);
+
+    const setupCall = async () => {
+      if (isJoiningExisting) {
+        await joinRealtimeCall({
           code: sessionCode,
-          callerUid: uid,
-          callerName: 'Personne entendante',
-          lang: speechLang,
-        }).then(() => {
-          showLocalIncomingNotification({ code: sessionCode, callerName: 'Personne entendante' });
+          uid,
+          calleeName: callerName,
         });
-
-    setupCall.catch(() => setSpeechStatus('firebase indisponible'));
-
-    const reminder = setInterval(async () => {
-      if (isJoiningExisting) return;
-      try {
-        const call = await getFirebaseData(`calls/${sessionCode}`);
-        if (call?.status === 'ringing') {
-          await pushFirebaseData('notifications/deaf_user', {
-            code: sessionCode,
-            callerName: 'Personne entendante',
-            timestamp: Date.now(),
-            status: 'pending',
-          });
-          showLocalIncomingNotification({ code: sessionCode, callerName: 'Personne entendante' });
-        }
-      } catch {
-        // Network may be unavailable; speech/transcript flow keeps retrying independently.
+        showCallToast(`${callerName} a rejoint l'appel`);
+        return;
       }
-    }, 30000);
+      await createRealtimeCall({
+        code: sessionCode,
+        callerUid: uid,
+        callerName,
+        lang: speechLang,
+        callerPhone: normalizePhoneNumber(wakwakUser?.phoneNumber || ''),
+        callerRole: 'hearing',
+        targetContactId: contact.id,
+        targetPhone,
+      });
+      await touchRealtimeCall(sessionCode);
+    };
+
+    setupCall().catch(() => setSpeechStatus('firebase indisponible'));
 
     try {
       bcRef.current = new BroadcastChannel(sessionCode);
@@ -808,7 +808,6 @@ function CallScreen({ contact }) {
 
     return () => {
       mountedRef.current = false;
-      clearInterval(reminder);
       clearInterval(keepAlive);
       stopSession();
       if (bcRef.current) {
@@ -1017,6 +1016,7 @@ function CallScreen({ contact }) {
 
   return (
     <div className="fixed inset-x-0 top-0 z-[9999] bg-[#f5f5f5] text-[#111111] max-w-md mx-auto flex flex-col overflow-hidden select-none animate-fade-in h-[calc(100dvh-80px)]">
+      {calleeJoined && <CalleeJoinedBanner name={calleeJoinedName} />}
       {callToast && (
         <div className="fixed left-1/2 z-[10001] -translate-x-1/2 bottom-24 rounded-full bg-[#6366f1] text-white text-[12px] font-semibold px-4 py-2 shadow-lg">
           {callToast}

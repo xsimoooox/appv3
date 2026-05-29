@@ -46,6 +46,7 @@ export function CallSystemProvider({ children }) {
     firebaseIncomingCall,
     acceptFirebaseIncomingCall,
     rejectFirebaseIncomingCall,
+    acceptingIncomingCall,
   } = useGlobalCallListener();
 
   usePushNotification(myPhoneNumber);
@@ -177,6 +178,7 @@ export function CallSystemProvider({ children }) {
           incomingCall={firebaseIncomingCall}
           onAccept={acceptFirebaseIncomingCall}
           onReject={rejectFirebaseIncomingCall}
+          accepting={acceptingIncomingCall}
         />
       )}
 

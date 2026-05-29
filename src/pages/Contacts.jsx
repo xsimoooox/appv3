@@ -43,10 +43,13 @@ import {
   registerNotificationPreference,
   storeSessionCode,
   touchRealtimeCall,
+  getFirebaseData,
 } from '../lib/firebaseRealtime';
 import { getPresenceLabel } from '../lib/contactCallUi';
 import { setPresenceAvailable, setPresenceInCall } from '../lib/presenceFirebase';
 import { getWakwakUser } from '../lib/wakwakUser';
+import { useCalleeJoinedSignal } from '../hooks/useCalleeJoinedSignal';
+import CalleeJoinedBanner from '../components/CalleeJoinedBanner';
 import { startContactCall } from '../lib/startContactCall';
 
 // Default mock contacts to populate Firestore initially
@@ -708,17 +711,33 @@ export default function Contacts() {
     if (!code) return;
     setRealtimeConnection('reconnecting');
     try {
-      await joinRealtimeCall({ code, uid: getClientUid('deaf') });
+      const user = getWakwakUser();
+      const uid = getClientUid('deaf');
+      const callMeta = await getFirebaseData(`calls/${code}`);
+      const isCaller = String(callMeta?.caller || '') === String(user?.id || uid);
+
+      if (!isCaller) {
+        await joinRealtimeCall({ code, uid, calleeName: user?.name || 'Personne sourde' });
+        showToast(`Vous avez rejoint l'appel ${code}`);
+      } else {
+        await touchRealtimeCall(code);
+      }
+
       storeSessionCode(code);
       setActiveSessionCode(code);
       setSessionCodeInput(code);
       setRealtimeConnection('connected');
-      showToast(`Session ${code} connectee`);
     } catch {
       setRealtimeConnection('lost');
       showToast('Connexion Firebase impossible');
     }
   };
+
+  const callSessionCode =
+    activeSessionCode || new URLSearchParams(location.search).get('code') || '';
+  const { calleeJoined, calleeJoinedName } = useCalleeJoinedSignal(
+    screen === 'call' ? callSessionCode : '',
+  );
 
   // Setup Call Intervals and Timers on Call Start
   useEffect(() => {
@@ -1020,6 +1039,10 @@ export default function Contacts() {
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[10000] px-4 py-2 bg-indigo-600 rounded-full text-xs font-bold text-white shadow-lg border border-indigo-500 animate-bounce">
           {toast}
         </div>
+      )}
+
+      {screen === 'call' && calleeJoined && (
+        <CalleeJoinedBanner name={calleeJoinedName} />
       )}
 
       {/* ========================================================

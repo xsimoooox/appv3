@@ -1,12 +1,33 @@
 import React from 'react';
-import { LogIn, PhoneIncoming, PhoneOff } from 'lucide-react';
+import { LogIn, PhoneIncoming, PhoneOff, Loader2 } from 'lucide-react';
+import { CALL_INVITE_TTL_MS } from '../lib/callInvite';
+
+function formatRemaining(expiresAt) {
+  const ms = Math.max(0, (expiresAt || 0) - Date.now());
+  const min = Math.floor(ms / 60000);
+  const sec = Math.floor((ms % 60000) / 1000);
+  return `${min}:${sec.toString().padStart(2, '0')}`;
+}
 
 export default function FirebaseIncomingCallOverlay({
   incomingCall,
   onAccept,
   onReject,
+  accepting = false,
 }) {
+  const [remaining, setRemaining] = React.useState('');
+
+  React.useEffect(() => {
+    if (!incomingCall?.expiresAt) return undefined;
+    const tick = () => setRemaining(formatRemaining(incomingCall.expiresAt));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [incomingCall?.expiresAt]);
+
   if (!incomingCall?.code) return null;
+
+  const expired = incomingCall.expiresAt && Date.now() > incomingCall.expiresAt;
 
   return (
     <div className="fixed inset-0 z-[100002] flex items-start justify-center pt-4 px-3 pointer-events-none">
@@ -23,20 +44,39 @@ export default function FirebaseIncomingCallOverlay({
             <p className="text-[11px] text-[#6366f1] font-bold mt-0.5 m-0">
               Code : {incomingCall.code}
             </p>
+            {remaining && !expired && (
+              <p className="text-[10px] text-[#777777] mt-1 m-0">
+                Valide encore {remaining} (max {CALL_INVITE_TTL_MS / 60000} min)
+              </p>
+            )}
           </div>
         </div>
         <div className="mt-4 flex gap-2">
           <button
             type="button"
-            onClick={onAccept}
-            className="h-11 flex-1 rounded-[12px] bg-[#16a34a] text-white text-[12px] font-extrabold flex items-center justify-center gap-1.5 active:scale-95"
+            disabled={accepting || expired}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onAccept();
+            }}
+            className="h-11 flex-1 rounded-[12px] bg-[#16a34a] disabled:opacity-50 text-white text-[12px] font-extrabold flex items-center justify-center gap-1.5 active:scale-95"
           >
-            <LogIn size={16} strokeWidth={2.5} />
-            Accepter
+            {accepting ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <LogIn size={16} strokeWidth={2.5} />
+            )}
+            {accepting ? 'Connexion…' : 'Accepter'}
           </button>
           <button
             type="button"
-            onClick={onReject}
+            disabled={accepting}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onReject();
+            }}
             className="h-11 flex-1 rounded-[12px] bg-[#ef4444] text-white text-[12px] font-extrabold flex items-center justify-center gap-1.5 active:scale-95"
           >
             <PhoneOff size={16} strokeWidth={2.5} />

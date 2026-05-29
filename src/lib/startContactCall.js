@@ -4,7 +4,6 @@ import {
   createRealtimeCall,
   generateSessionCode,
   getClientUid,
-  joinRealtimeCall,
   storeSessionCode,
   touchRealtimeCall,
 } from './firebaseRealtime';
@@ -38,14 +37,12 @@ export async function startFirebaseCall({
     callerUid: uid,
     callerName,
     lang: 'fr-FR',
-    notifyAudience: role === 'deaf' ? 'hearing' : 'deaf',
     callerPhone,
     callerRole: role === 'deaf' ? 'deaf' : 'hearing',
     targetContactId: contactId,
     targetPhone: normalizePhoneNumber(targetPhone),
   });
 
-  await joinRealtimeCall({ code, uid }).catch(() => {});
   await touchRealtimeCall(code).catch(() => {});
 
   if (callerPhone) {

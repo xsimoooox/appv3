@@ -1,5 +1,6 @@
 let ringtoneInterval = null;
 let ringtoneAudio = null;
+let lastRingingCode = null;
 
 export function playIncomingRingtone() {
   stopIncomingRingtone();
@@ -38,6 +39,7 @@ function playBeepRingtone() {
 }
 
 export function stopIncomingRingtone() {
+  lastRingingCode = null;
   if (ringtoneAudio) {
     ringtoneAudio.pause();
     ringtoneAudio.currentTime = 0;
@@ -49,30 +51,42 @@ export function stopIncomingRingtone() {
   }
 }
 
+/**
+ * Une seule notification système par code d'appel (évite le spam).
+ */
 export async function notifyIncomingCall({
   code,
   callerName,
   acceptUrl,
   role = 'deaf',
 }) {
-  playIncomingRingtone();
+  if (!code) return;
+
+  const isSameRinging = lastRingingCode === code;
+  lastRingingCode = code;
+
+  if (!isSameRinging) {
+    playIncomingRingtone();
+  }
 
   const title = '📞 Appel entrant — WakWak';
-  const body = `${callerName || 'Quelqu\'un'} vous appelle${code ? ` · Code ${code}` : ''}`;
+  const body = `${callerName || 'Quelqu\'un'} vous appelle · Code ${code}`;
+
+  const notifyOptions = {
+    body,
+    icon: '/icons/icon-192.png',
+    badge: '/icons/badge-72.png',
+    tag: `wakwak-call-${code}`,
+    renotify: false,
+    requireInteraction: true,
+    vibrate: [400, 200, 400, 200, 400],
+    silent: false,
+    data: { code, acceptUrl, type: 'incoming_call', role },
+  };
 
   if ('Notification' in window && Notification.permission === 'granted') {
     try {
-      const n = new Notification(title, {
-        body,
-        icon: '/icons/icon-192.png',
-        badge: '/icons/badge-72.png',
-        tag: `wakwak-call-${code}`,
-        renotify: true,
-        requireInteraction: true,
-        vibrate: [400, 200, 400, 200, 400],
-        silent: false,
-        data: { code, acceptUrl, type: 'incoming_call', role },
-      });
+      const n = new Notification(title, notifyOptions);
       n.onclick = () => {
         window.focus();
         if (acceptUrl) window.location.href = acceptUrl;
@@ -82,27 +96,35 @@ export async function notifyIncomingCall({
     }
   }
 
-  if (navigator.serviceWorker?.controller) {
-    navigator.serviceWorker.controller.postMessage({
-      type: 'INCOMING_CALL',
-      code,
-      callerName,
-      acceptUrl,
-      role,
-      title,
-      body,
-    });
-  } else if (navigator.serviceWorker?.ready) {
-    const reg = await navigator.serviceWorker.ready;
-    reg.showNotification(title, {
-      body,
-      icon: '/icons/icon-192.png',
-      tag: `wakwak-call-${code}`,
-      renotify: true,
-      requireInteraction: true,
-      vibrate: [400, 200, 400, 200, 400],
-      silent: false,
-      data: { code, acceptUrl, type: 'incoming_call', role },
-    }).catch(() => {});
+  try {
+    const reg = navigator.serviceWorker?.controller
+      ? { showNotification: (t, o) => navigator.serviceWorker.ready.then((r) => r.showNotification(t, o)) }
+      : await navigator.serviceWorker?.ready;
+
+    if (reg?.showNotification) {
+      await reg.showNotification(title, notifyOptions);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+export function playJoinedChime() {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 523;
+    osc.type = 'sine';
+    gain.gain.value = 0.25;
+    osc.start();
+    setTimeout(() => {
+      osc.stop();
+      ctx.close();
+    }, 280);
+  } catch {
+    /* ignore */
   }
 }
