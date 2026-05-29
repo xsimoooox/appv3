@@ -6,8 +6,5 @@
     { "src": "/api/(.*)", "dest": "/api/$1" },
     { "src": "/", "dest": "/index.html" },
     { "src": "/(.*)", "dest": "/index.html" }
-  ],
-  "env": {
-    "JWT_SECRET": "@jwt_secret"
-  }
+  ]
 }
