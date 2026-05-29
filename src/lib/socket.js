@@ -79,24 +79,6 @@ export function initSocket(user) {
 export function getSocketError() {
   return socketError;
 }
-    console.log('[SOCKET] Enregistré en base:', data);
-    registeredUserId = user.id;
-  });
-
-  socket.on('register_confirmed', () => {
-    registeredUserId = user.id;
-  });
-
-  socket.on('disconnect', () => {
-    registeredUserId = null;
-  });
-
-  socket.io.on('reconnect', () => {
-    registerUser(user);
-  });
-
-  return socket;
-}
 
 export function disconnectSocket() {
   if (socket) {
