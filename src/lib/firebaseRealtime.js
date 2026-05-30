@@ -1,3 +1,5 @@
+import { invitePhoneKey } from './callInvite';
+
 const DATABASE_URL = 'https://sign-langage-default-rtdb.firebaseio.com';
 const API_KEY = 'AIzaSyDWVNNE_7-Ea1Cd5mPUZuh3pDGlEG64DGM';
 
@@ -145,12 +147,7 @@ export function listenFirebaseValue(path, onValue, onConnection) {
 const CALL_INVITE_TTL_MS = 5 * 60 * 1000;
 
 function inviteKeyFromPhone(phone) {
-  const trimmed = String(phone || '').trim();
-  if (!trimmed) return '';
-  if (trimmed.startsWith('+')) {
-    return encodeURIComponent(`+${trimmed.replace(/\D/g, '')}`);
-  }
-  return encodeURIComponent(trimmed);
+  return invitePhoneKey(phone);
 }
 
 export async function createRealtimeCall({
@@ -212,10 +209,17 @@ export async function createRealtimeCall({
   }
 }
 
-export async function joinRealtimeCall({ code, uid, calleeName = '' }) {
+export async function joinRealtimeCall({ code, uid, calleeName = '', calleePhone = '' }) {
   storeSessionCode(code);
   const now = Date.now();
   const name = calleeName || 'Interlocuteur';
+
+  const callMeta = await getFirebaseData(`calls/${code}`);
+  const invitePhone = calleePhone || callMeta?.targetPhone || '';
+  if (invitePhone) {
+    await clearCallInvite(invitePhone, code).catch(() => {});
+  }
+
   await updateFirebaseData(`sessions/${code}`, {
     participants: { B: uid, BJoinedAt: now },
     calleeJoined: true,

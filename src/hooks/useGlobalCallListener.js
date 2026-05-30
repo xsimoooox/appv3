@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  clearCallInvite,
   endRealtimeCall,
   getClientUid,
   joinRealtimeCall,
@@ -65,6 +66,13 @@ export function useGlobalCallListener() {
         .filter((inv) => isInviteValid(inv))
         .filter((inv) => !dismissedRef.current.has(inv.code))
         .filter((inv) => String(inv.callerUid || inv.caller || '') !== String(myUidRef.current))
+        .filter((inv) => {
+          const target = normalizePhoneNumber(inv.targetPhone || '');
+          if (target && myPhone && target !== myPhone) return false;
+          const caller = normalizePhoneNumber(inv.callerPhone || '');
+          if (caller && myPhone && caller === myPhone) return false;
+          return true;
+        })
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
       const latest = valid[0];
@@ -100,7 +108,7 @@ export function useGlobalCallListener() {
         });
       }
     },
-    [],
+    [myPhone],
   );
 
   useEffect(() => {
@@ -129,7 +137,12 @@ export function useGlobalCallListener() {
     storeSessionCode(call.code);
 
     try {
-      await joinRealtimeCall({ code: call.code, uid, calleeName });
+      await joinRealtimeCall({
+        code: call.code,
+        uid,
+        calleeName,
+        calleePhone: myPhone,
+      });
     } catch {
       /* déjà joint */
     }
@@ -153,7 +166,7 @@ export function useGlobalCallListener() {
     } catch {
       window.location.assign(joinPath);
     }
-  }, [navigate, accepting]);
+  }, [navigate, accepting, myPhone]);
 
   const rejectIncomingCall = useCallback(async () => {
     const call = ringingRef.current;
@@ -161,10 +174,13 @@ export function useGlobalCallListener() {
 
     stopIncomingRingtone();
     dismissCode(call.code);
+    if (myPhone) {
+      await clearCallInvite(myPhone, call.code).catch(() => {});
+    }
     await endRealtimeCall(call.code).catch(() => {});
     setIncomingCall(null);
     ringingRef.current = null;
-  }, []);
+  }, [myPhone]);
 
   return {
     firebaseIncomingCall: incomingCall,

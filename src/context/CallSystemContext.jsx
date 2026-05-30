@@ -15,6 +15,7 @@ import { useCallSystem } from '../hooks/useCallSystem';
 import { usePushNotification } from '../hooks/usePushNotification';
 import { useFirebasePresence } from '../hooks/useFirebasePresence';
 import { useGlobalCallListener } from '../hooks/useGlobalCallListener';
+import { useFirebaseOutgoingCall } from '../hooks/useFirebaseOutgoingCall';
 import { getCallRouteForPeer } from '../lib/callNavigation';
 import { normalizePhoneNumber } from '../lib/phoneUtils';
 import { getWakwakUser } from '../lib/wakwakUser';
@@ -49,12 +50,18 @@ export function CallSystemProvider({ children }) {
     acceptingIncomingCall,
   } = useGlobalCallListener();
 
-  usePushNotification(myPhoneNumber);
-
   const onToast = useCallback((message, type = 'info') => {
     setCallToast({ message, type });
     setTimeout(() => setCallToast(null), 2500);
   }, []);
+
+  const {
+    firebaseOutgoingCall,
+    startFirebaseOutgoing,
+    cancelFirebaseOutgoing,
+  } = useFirebaseOutgoingCall({ onToast });
+
+  usePushNotification(myPhoneNumber);
 
   const callSystem = useCallSystem(myPhoneNumber, myRole, {
     onToast,
@@ -146,6 +153,8 @@ export function CallSystemProvider({ children }) {
       acceptFirebaseIncomingCall,
       rejectFirebaseIncomingCall,
       presenceByPhone,
+      startFirebaseOutgoing,
+      cancelFirebaseOutgoing,
     }),
     [
       callSystem,
@@ -154,6 +163,8 @@ export function CallSystemProvider({ children }) {
       acceptFirebaseIncomingCall,
       rejectFirebaseIncomingCall,
       presenceByPhone,
+      startFirebaseOutgoing,
+      cancelFirebaseOutgoing,
     ],
   );
 
@@ -194,6 +205,13 @@ export function CallSystemProvider({ children }) {
         <OutgoingCallModal
           outgoingCall={callSystem.outgoingCall}
           onCancel={callSystem.cancelOutgoing}
+        />
+      )}
+
+      {firebaseOutgoingCall?.status === 'ringing' && !callSystem.outgoingCall && (
+        <OutgoingCallModal
+          outgoingCall={firebaseOutgoingCall}
+          onCancel={cancelFirebaseOutgoing}
         />
       )}
     </CallSystemContext.Provider>

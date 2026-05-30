@@ -50,11 +50,11 @@ export default function OutgoingCallModal({ outgoingCall, onCancel }) {
           Appel en cours…
         </p>
         <p className="text-[18px] font-bold m-0 mb-1" style={{ color: '#f0f0f0' }}>
-          {outgoingCall.targetPhone}
+          {outgoingCall.targetName || meta?.name || outgoingCall.targetPhone}
         </p>
-        {meta?.name && (
+        {(outgoingCall.targetName || meta?.name) && outgoingCall.targetPhone && (
           <p className="text-[13px] m-0 mb-3" style={{ color: '#6B7280' }}>
-            {meta.name}
+            {outgoingCall.targetPhone}
           </p>
         )}
         <div className="flex justify-center gap-1 mb-3">

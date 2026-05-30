@@ -53,6 +53,7 @@ import { getWakwakUser } from '../lib/wakwakUser';
 import { useCalleeJoinedSignal } from '../hooks/useCalleeJoinedSignal';
 import CalleeJoinedBanner from '../components/CalleeJoinedBanner';
 import { startContactCall } from '../lib/startContactCall';
+import { PHOTOS } from '../lib/lsfData';
 
 // Default mock contacts to populate Firestore initially
 const DEFAULT_CONTACTS = [
@@ -183,6 +184,7 @@ export default function Contacts() {
     sendSignText,
     receivedText,
     canSpeakTurn,
+    startFirebaseOutgoing,
   } = useCallSystemContext();
 
   // Determine current screen from URL
@@ -239,7 +241,9 @@ export default function Contacts() {
   const [currentLetterUrl, setCurrentLetterUrl] = useState('');
   const [currentLetter, setCurrentLetter] = useState('');
   const [currentWord, setCurrentWord] = useState('');
+  const [frizittaIdxInfo, setFrizittaIdxInfo] = useState({ num: 0, total: 0 });
   const [currentAlexWord, setCurrentAlexWord] = useState('');
+  const [alexIdxInfo, setAlexIdxInfo] = useState({ num: 0, total: 0 });
   const [activeVideo, setActiveVideo] = useState('A');
 
   // Video and loops refs
@@ -279,43 +283,28 @@ export default function Contacts() {
     registerNotificationPreference(uid).catch(() => {});
   }, []);
 
-  // Parse Frizitta and Alex database files for calling screen
+  // Même chargement avatars que Rencontre (PHOTOS Cloudinary + ALEX_DB.txt)
   useEffect(() => {
-    Promise.all([
-      fetch('/FRIZITTA_DB.txt').then(r => r.text()),
-      fetch('/ALEX_DB.txt').then(r => r.text())
-    ])
-      .then(([frizittaText, alexText]) => {
-        // Parse Frizitta
-        const fLines = frizittaText.split('\n');
-        const fDb = {};
-        fLines.forEach(line => {
-          if (!line.includes('|')) return;
-          const parts = line.split('|');
-          const nomPart = parts[0].replace('Nom :', '').trim();
-          const urlPart = parts[1].replace('URL :', '').trim();
-          const underscoreIndex = nomPart.indexOf('_');
-          if (underscoreIndex === -1) return;
-          let char = nomPart.substring(0, underscoreIndex).toUpperCase();
-          fDb[char] = urlPart;
-        });
-        setFrizittaDb(fDb);
+    setFrizittaDb(PHOTOS);
+    setCurrentLetterUrl(PHOTOS.NEUTRE || '');
 
-        // Parse Alex
+    fetch('/ALEX_DB.txt')
+      .then((r) => r.text())
+      .then((alexText) => {
         const aLines = alexText.split('\n');
         const aDb = [];
-        aLines.forEach(line => {
+        aLines.forEach((line) => {
           if (!line.includes('|')) return;
           const parts = line.split('|');
           let original = '';
           let synonymes = [];
           let url = '';
-          parts.forEach(part => {
+          parts.forEach((part) => {
             if (part.includes('Nom Original :')) {
               original = part.replace('Nom Original :', '').trim();
             } else if (part.includes('Synonymes :')) {
               const synStr = part.replace('Synonymes :', '').trim();
-              synonymes = synStr.split(',').map(s => s.trim()).filter(s => s.length > 0);
+              synonymes = synStr.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
             } else if (part.includes('URL :')) {
               url = part.replace('URL :', '').trim();
             }
@@ -326,7 +315,7 @@ export default function Contacts() {
         });
         setAlexDb(aDb);
       })
-      .catch(err => console.error("Erreur chargement bases de données appel", err));
+      .catch((err) => console.error('Erreur chargement base Alex', err));
   }, []);
 
   // Simulate Firestore Real-time listener for contact status updates
@@ -442,14 +431,19 @@ export default function Contacts() {
           if (user?.phoneNumber) {
             setPresenceInCall(user.phoneNumber, result.code).catch(() => {});
           }
-          navigate(result.path);
-          showToast(`📞 Appel LSF démarré — code ${result.code}`);
+          startFirebaseOutgoing({
+            code: result.code,
+            path: result.path,
+            targetPhone,
+            targetName: contactName,
+          });
+          showToast(`📞 Sonnerie en cours…`);
         }
       } catch {
         showToast('Impossible de démarrer l\'appel. Vérifiez votre connexion.');
       }
     },
-    [callUser, getRealtimeStatus, navigate],
+    [callUser, getRealtimeStatus, startFirebaseOutgoing],
   );
 
   useEffect(() => {
@@ -528,93 +522,116 @@ export default function Contacts() {
     (c.firstName + ' ' + c.lastName).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Avatar Processing routines for Calling Screen (copied from Rencontre for high-fidelity)
+  // --- Avatars : même code que Rencontre.jsx (process / playback) ---
   function processFrizitta(text) {
     if (!frizittaDb) return [];
     const normalized = text.toUpperCase();
-    const words = normalized.split(' ').filter(w => w.length > 0);
+    const words = normalized.split(' ').filter((w) => w.length > 0);
     const sequence = [];
-    
+
     words.forEach((word, index) => {
       word.split('').forEach((char, charIdx) => {
         if (frizittaDb[char]) {
-          sequence.push({ 
-            type: 'letter', 
-            url: frizittaDb[char], 
-            char: char,
-            word: word
+          sequence.push({
+            type: 'letter',
+            url: frizittaDb[char],
+            char,
+            word,
+            charNum: charIdx + 1,
+            totalChars: word.length,
           });
         }
       });
       if (index < words.length - 1) {
-        sequence.push({ type: 'neutral', url: frizittaDb['NEUTRE'] || '' });
+        sequence.push({ type: 'neutral', url: frizittaDb.NEUTRE || '' });
       }
     });
-    sequence.push({ type: 'neutral', url: frizittaDb['NEUTRE'] || '' });
+    sequence.push({ type: 'neutral', url: frizittaDb.NEUTRE || '' });
     return sequence;
   }
 
   const startFrizittaPlayback = (sequence) => {
     stopFrizittaPlayback();
+
     frizittaPlaybackRef.current.sequence = sequence;
     frizittaPlaybackRef.current.index = 0;
     frizittaPlaybackRef.current.active = true;
-    
+
     const play = () => {
       if (!frizittaPlaybackRef.current.active) return;
       const idx = frizittaPlaybackRef.current.index;
       const seq = frizittaPlaybackRef.current.sequence;
+
       if (idx >= seq.length) {
-        setCurrentLetterUrl(frizittaDb['NEUTRE'] || '');
+        setCurrentLetterUrl(frizittaDb.NEUTRE || '');
         setCurrentLetter('');
         setCurrentWord('');
+        setFrizittaIdxInfo({ num: 0, total: 0 });
         return;
       }
+
       const item = seq[idx];
       setCurrentLetterUrl(item.url);
+
       if (item.type === 'letter') {
         setCurrentLetter(item.char);
         setCurrentWord(item.word);
+        setFrizittaIdxInfo({ num: item.charNum, total: item.totalChars });
       } else {
         setCurrentLetter('');
         setCurrentWord('');
+        setFrizittaIdxInfo({ num: 0, total: 0 });
       }
+
       const duration = item.type === 'neutral' ? 300 : 600;
+
       frizittaPlaybackRef.current.timer = setTimeout(() => {
         frizittaPlaybackRef.current.index++;
         play();
       }, duration);
     };
+
     play();
   };
 
   const stopFrizittaPlayback = () => {
     frizittaPlaybackRef.current.active = false;
-    if (frizittaPlaybackRef.current.timer) clearTimeout(frizittaPlaybackRef.current.timer);
+    if (frizittaPlaybackRef.current.timer) {
+      clearTimeout(frizittaPlaybackRef.current.timer);
+    }
     setCurrentLetter('');
     setCurrentWord('');
-    setCurrentLetterUrl(frizittaDb ? frizittaDb['NEUTRE'] || '' : '');
+    setFrizittaIdxInfo({ num: 0, total: 0 });
+    setCurrentLetterUrl(frizittaDb ? frizittaDb.NEUTRE || '' : '');
   };
 
   function findInAlex(word) {
     if (!alexDb) return null;
     const w = word.toLowerCase().trim();
-    let entry = alexDb.find(e => e.original.toLowerCase() === w);
+
+    let entry = alexDb.find((e) => e.original.toLowerCase() === w);
     if (entry) return entry.url;
-    entry = alexDb.find(e => e.synonymes.some(s => s.toLowerCase() === w));
+
+    entry = alexDb.find((e) => e.synonymes.some((s) => s.toLowerCase() === w));
     if (entry) return entry.url;
+
     return null;
   }
 
   function processAlex(text) {
-    const words = text.toLowerCase().trim().split(' ').filter(w => w.length > 0);
+    if (!alexDb) return { sequence: [], skipped: [] };
+    const words = text.toLowerCase().trim().split(' ').filter((w) => w.length > 0);
     const sequence = [];
     const skipped = [];
     let i = 0;
+
     while (i < words.length) {
       if (i + 1 < words.length) {
-        const twoWords = words[i] + ' ' + words[i+1];
-        const compound = alexDb.find(e => e.original.toLowerCase().replace(/-|_/g, ' ') === twoWords);
+        const twoWords = `${words[i]} ${words[i + 1]}`;
+        const compound = alexDb.find((e) => {
+          const normalized = e.original.toLowerCase().replace(/-|_/g, ' ');
+          return normalized === twoWords;
+        });
         if (compound) {
           sequence.push({ url: compound.url, word: twoWords });
           i += 2;
@@ -623,7 +640,7 @@ export default function Contacts() {
       }
       const url = findInAlex(words[i]);
       if (url) {
-        sequence.push({ url: url, word: words[i] });
+        sequence.push({ url, word: words[i] });
       } else {
         skipped.push(words[i]);
       }
@@ -656,6 +673,7 @@ export default function Contacts() {
 
       if (seqIndex >= seq.length) {
         setCurrentAlexWord('');
+        setAlexIdxInfo({ num: 0, total: 0 });
         return;
       }
 
@@ -665,6 +683,7 @@ export default function Contacts() {
 
       const currentItem = seq[seqIndex];
       setCurrentAlexWord(currentItem.word.toUpperCase());
+      setAlexIdxInfo({ num: seqIndex + 1, total: seq.length });
 
       if (seqIndex + 1 < seq.length) {
         applyAlexVideoStyles(nextVideo);
@@ -683,6 +702,7 @@ export default function Contacts() {
             nextVideo.style.zIndex = '2';
             currentVideo.style.opacity = '0';
             currentVideo.style.zIndex = '1';
+
             nextVideo.playbackRate = 1.0;
             nextVideo.play();
 
@@ -692,6 +712,7 @@ export default function Contacts() {
             playNextAlex();
           } else {
             setCurrentAlexWord('');
+            setAlexIdxInfo({ num: 0, total: 0 });
           }
         }
       };
@@ -708,6 +729,8 @@ export default function Contacts() {
   const stopAlexPlayback = () => {
     alexPlaybackRef.current.active = false;
     setCurrentAlexWord('');
+    setAlexIdxInfo({ num: 0, total: 0 });
+
     if (videoARef.current) {
       videoARef.current.pause();
       videoARef.current.ontimeupdate = null;
@@ -717,6 +740,37 @@ export default function Contacts() {
       videoBRef.current.pause();
       videoBRef.current.ontimeupdate = null;
       videoBRef.current.src = '';
+    }
+  };
+
+  const handleNewTranslationText = (text) => {
+    if (!text.trim()) return;
+
+    setInterlocuteurDit(text);
+    setTranscriptHistory((prev) => [
+      ...prev,
+      {
+        id: `remote_${Date.now()}`,
+        sender: 'contact',
+        text,
+        timestamp: new Date().toLocaleTimeString('fr-FR', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      },
+    ]);
+
+    if (avatarMode === 'frizitta') {
+      const sequence = processFrizitta(text);
+      if (sequence.length > 0) {
+        startFrizittaPlayback(sequence);
+      }
+    } else if (avatarMode === 'alex') {
+      const { sequence, skipped } = processAlex(text);
+      setAlexSkippedWords(skipped);
+      if (sequence.length > 0) {
+        startAlexPlayback(sequence);
+      }
     }
   };
 
@@ -817,21 +871,7 @@ export default function Contacts() {
         lastRemoteTextRef.current = text;
 
         if (newText) {
-          if (avatarMode === 'frizitta') {
-            const seq = processFrizitta(newText);
-            if (seq.length > 0) startFrizittaPlayback(seq);
-          } else {
-            const { sequence, skipped } = processAlex(newText);
-            setAlexSkippedWords(skipped);
-            if (sequence.length > 0) startAlexPlayback(sequence);
-          }
-
-          setTranscriptHistory(prev => [...prev, {
-            id: 'remote_' + Date.now(),
-            sender: 'contact',
-            text: newText,
-            timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-          }]);
+          handleNewTranslationText(newText);
         }
       }
     }, setRealtimeConnection);
@@ -869,32 +909,10 @@ export default function Contacts() {
   const processIncomingVoiceText = useCallback((text) => {
     const cleaned = (text || '').trim();
     if (!cleaned) return;
-    setInterlocuteurDit(cleaned);
     setIsSpeaking(true);
     setTimeout(() => setIsSpeaking(false), 2000);
-
-    if (avatarMode === 'frizitta') {
-      const seq = processFrizitta(cleaned);
-      if (seq.length > 0) startFrizittaPlayback(seq);
-    } else {
-      const { sequence, skipped } = processAlex(cleaned);
-      setAlexSkippedWords(skipped);
-      if (sequence.length > 0) startAlexPlayback(sequence);
-    }
-
-    setTranscriptHistory((prev) => [
-      ...prev,
-      {
-        id: `remote_${Date.now()}`,
-        sender: 'contact',
-        text: cleaned,
-        timestamp: new Date().toLocaleTimeString('fr-FR', {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-      },
-    ]);
-  }, [avatarMode]);
+    handleNewTranslationText(cleaned);
+  }, [avatarMode, frizittaDb, alexDb]);
 
   useEffect(() => {
     if (!receivedText?.trim()) return;

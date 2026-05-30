@@ -165,7 +165,7 @@ function ContactAvatar({ contact, size = 'sm' }) {
 function ContactList() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { callUser, getRealtimeStatus, activeCall } = useCallSystemContext();
+  const { callUser, getRealtimeStatus, activeCall, startFirebaseOutgoing } = useCallSystemContext();
   const [query, setQuery] = useState('');
   const [contacts, setContacts] = useState(loadStoredContacts);
   const [listToast, setListToast] = useState(null);
@@ -211,8 +211,13 @@ function ContactList() {
         if (user?.phoneNumber) {
           setPresenceInCall(user.phoneNumber, result.code).catch(() => {});
         }
-        navigate(result.path);
-        setListToast(`📞 Appel démarré — code ${result.code}`);
+        startFirebaseOutgoing({
+          code: result.code,
+          path: result.path,
+          targetPhone,
+          targetName: contact.name,
+        });
+        setListToast('📞 Sonnerie en cours…');
         setTimeout(() => setListToast(null), 3000);
       }
     } catch {
@@ -466,7 +471,7 @@ function DetailRow({ icon: Icon, label, value }) {
 
 function ContactDetail({ contact, onDelete, onToggleFavorite, onShare }) {
   const navigate = useNavigate();
-  const { callUser, getRealtimeStatus } = useCallSystemContext();
+  const { callUser, getRealtimeStatus, startFirebaseOutgoing } = useCallSystemContext();
   const liveStatus = getRealtimeStatus(getContactPhone(contact), contact.status);
   const [detailToast, setDetailToast] = useState(null);
 
@@ -485,7 +490,18 @@ function ContactDetail({ contact, onDelete, onToggleFavorite, onShare }) {
       });
 
       if (result.mode === 'firebase') {
-        navigate(result.path);
+        const user = getWakwakUser();
+        if (user?.phoneNumber) {
+          setPresenceInCall(user.phoneNumber, result.code).catch(() => {});
+        }
+        startFirebaseOutgoing({
+          code: result.code,
+          path: result.path,
+          targetPhone,
+          targetName: contact.name,
+        });
+        setDetailToast('📞 Sonnerie en cours…');
+        setTimeout(() => setDetailToast(null), 2500);
       }
     } catch {
       setDetailToast('Impossible de démarrer l\'appel');
