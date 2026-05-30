@@ -21,8 +21,8 @@ import {
   X,
   Check,
 } from 'lucide-react';
-import AvatarStage from '../components/AvatarStage';
 import AlexStage, { applyAlexVideoStyles } from '../components/AlexStage';
+import RencontreAvatarSection from '../components/RencontreAvatarSection';
 import RencontreQrCode from '../components/RencontreQrCode';
 import SessionTopBar from '../components/SessionTopBar';
 import { useImmersiveSession } from '../context/ImmersiveSessionContext';
@@ -1280,41 +1280,14 @@ export default function Rencontre() {
               </div>
 
               {/* 3. CADRE AVATAR — ratio 3:4 strict, boutons en dessous */}
-              <div className="rencontre-avatar-section">
-                <div
-                  className={`avatar-container${
-                    modeAvatar === 'alex'
-                      ? ' avatar-container--alex'
-                      : ' avatar-container--frizitta'
-                  }`}
-                >
-                  <div className="avatar-inner">
-                    {modeAvatar === 'frizitta' && (
-                      <div
-                        className="flex h-full w-full items-center justify-center overflow-hidden"
-                        id="frizitta-player"
-                      >
-                        <AvatarStage
-                          src={
-                            currentLetterUrl ||
-                            (frizittaDb ? frizittaDb.NEUTRE || '' : '')
-                          }
-                        />
-                      </div>
-                    )}
-
-                    {modeAvatar === 'alex' && (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <AlexStage
-                          videoARef={videoARef}
-                          videoBRef={videoBRef}
-                          activeVideo={activeVideo}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
+              <RencontreAvatarSection
+                modeAvatar={modeAvatar}
+                frizittaDb={frizittaDb}
+                currentLetterUrl={currentLetterUrl}
+                videoARef={videoARef}
+                videoBRef={videoBRef}
+                activeVideo={activeVideo}
+              >
                 <div className="avatar-actions shrink-0">
                   <button
                     type="button"
@@ -1349,7 +1322,7 @@ export default function Rencontre() {
                     <span>Terminer</span>
                   </button>
                 </div>
-              </div>
+              </RencontreAvatarSection>
 
             </div>
 

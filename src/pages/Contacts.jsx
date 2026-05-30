@@ -31,8 +31,8 @@ import {
 } from 'lucide-react';
 import ZoneDActionBar from '../components/ZoneDActionBar';
 import SessionTopBar from '../components/SessionTopBar';
-import AvatarStage from '../components/AvatarStage';
 import AlexStage, { applyAlexVideoStyles } from '../components/AlexStage';
+import RencontreAvatarSection from '../components/RencontreAvatarSection';
 import { useCallSystemContext } from '../context/CallSystemContext';
 import { useImmersiveSession } from '../context/ImmersiveSessionContext';
 import { getContactCallState } from '../lib/contactCallUi';
@@ -1670,42 +1670,15 @@ export default function Contacts() {
             </div>
           </div>
 
-          {/* ZONE B — CADRE AVATAR (visuellement identique à Rencontre) */}
-          <div className="rencontre-avatar-section call-screen-avatar-match">
-            <div
-              className={`avatar-container${
-                avatarMode === 'alex'
-                  ? ' avatar-container--alex'
-                  : ' avatar-container--frizitta'
-              }`}
-            >
-              <div className="avatar-inner">
-                {avatarMode === 'frizitta' && (
-                  <div
-                    className="flex h-full w-full items-center justify-center overflow-hidden"
-                    id="frizitta-player"
-                  >
-                    <AvatarStage
-                      src={
-                        currentLetterUrl ||
-                        (frizittaDb ? frizittaDb.NEUTRE || '' : '')
-                      }
-                    />
-                  </div>
-                )}
-
-                {avatarMode === 'alex' && (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <AlexStage
-                      videoARef={videoARef}
-                      videoBRef={videoBRef}
-                      activeVideo={activeVideo}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
+          {/* ZONE B — CADRE AVATAR (même composant / affichage que Rencontre) */}
+          <RencontreAvatarSection
+            modeAvatar={avatarMode}
+            frizittaDb={frizittaDb}
+            currentLetterUrl={currentLetterUrl}
+            videoARef={videoARef}
+            videoBRef={videoBRef}
+            activeVideo={activeVideo}
+          >
             <div className="avatar-actions shrink-0">
               <div
                 className="avatar-action-btn avatar-action-btn--avatar avatar-action-btn--placeholder"
@@ -1738,7 +1711,7 @@ export default function Contacts() {
                 <span>Terminer</span>
               </div>
             </div>
-          </div>
+          </RencontreAvatarSection>
 
           {/* ZONE C — TEXTE TRADUIT — min 58px */}
           <div className="bg-[#F9FAFB] border-t border-b border-[#E5E7EB] px-4 py-2.5 flex flex-col shrink-0 min-h-[96px] justify-center select-text">

@@ -93,45 +93,7 @@
   padding: 0.5rem 0.75rem;
 }
 
-/* Appel sourde : mêmes dimensions de cadre que la colonne Rencontre active */
-.call-screen-avatar-match .avatar-container--frizitta {
-  width: auto;
-  max-width: min(425px, 92vw);
-  height: min(576px, calc(100vh - 52px - 140px - 56px - 120px));
-  aspect-ratio: 425 / 576;
-  align-self: center;
-  margin-left: auto;
-  margin-right: auto;
-  flex: 0 0 auto;
-  flex-shrink: 0;
-}
-
-.call-screen-avatar-match .avatar-container--alex {
-  aspect-ratio: 3 / 4;
-  width: auto;
-  max-width: min(640px, 100%);
-  max-height: min(
-    calc(100vh - 52px - 140px - 56px - 120px),
-    calc((100vw - 24px) * 4 / 3)
-  );
-  align-self: center;
-  margin-left: auto;
-  margin-right: auto;
-  flex: 0 0 auto;
-  flex-shrink: 0;
-  background-color: #ffffff;
-}
-
-.call-screen-avatar-match .avatar-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1.75rem;
-  padding-bottom: 0.25rem;
-  flex-shrink: 0;
-}
-
-.call-screen-avatar-match .avatar-action-btn--placeholder {
+.avatar-action-btn--placeholder {
   visibility: hidden;
   pointer-events: none;
 }
@@ -263,11 +225,9 @@ video, img {
   object-fit: contain !important;
 }
 
-/* Frizitta / Alex — cover centré (priorité sur la règle globale contain) */
-.avatar-container .avatar-stage-frizitta img,
-.avatar-container .avatar-stage-alex video,
-.avatar-stage-frizitta img,
-.avatar-stage-alex video {
+/* Frizitta Rencontre / Appel : cover + centrage tête (priorité sur contain global) */
+.avatar-container--frizitta .avatar-stage-frizitta,
+.avatar-container--frizitta .avatar-stage-frizitta img {
   object-fit: cover !important;
   object-position: center 8% !important;
 }
@@ -281,14 +241,6 @@ video, img {
   aspect-ratio: unset !important;
 }
 
-.avatar-container .avatar-inner,
-.call-screen-avatar-match #frizitta-player,
-.call-screen-avatar-match .avatar-inner > div {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-}
-
 .avatar-stage-frizitta {
   background-color: transparent !important;
   overflow: hidden !important;
@@ -300,9 +252,6 @@ video, img {
   position: absolute !important;
   top: 0 !important;
   left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  margin: auto !important;
 }
 
 /* Uniformisation Alex — vidéo 16:9 en cover, cadrage haut du personnage */
@@ -312,14 +261,13 @@ video, img {
 }
 
 .avatar-stage-alex video {
+  object-fit: cover !important;
+  object-position: center 8% !important;
   width: 100% !important;
   height: 100% !important;
   position: absolute !important;
   top: 0 !important;
   left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  margin: auto !important;
   transform: none !important;
   background-color: transparent !important;
 }
