@@ -20,7 +20,7 @@ export default function BottomNav() {
     { name: 'Contacts', path: '/entendant/contacts', icon: Users },
     { name: 'Rencontre', path: '/entendant/rencontre', icon: QrCode },
     { name: 'Historique', path: '/entendant/historique', icon: Clock },
-    { name: 'Réglages', path: '/entendant/parametres', icon: Settings },
+    { name: 'PARAMÈTRES', path: '/entendant/parametres', icon: Settings },
   ];
 
   const navItems = isHearing ? hearingNavItems : deafNavItems;

@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCallSystemContext } from '../context/CallSystemContext';
 import { performLogout } from '../lib/logoutSession';
+import { getWakwakUser, saveWakwakUser } from '../lib/wakwakUser';
+import { getProfileStorageKey, loadSettingsProfile } from '../lib/profileFromUser';
 import {
   AlertTriangle,
   Bell,
@@ -37,16 +39,6 @@ import {
   Vibrate,
   Volume2,
 } from 'lucide-react';
-
-const initialProfile = {
-  firstName: 'Jean',
-  lastName: 'Dupont',
-  birthDate: '12/05/1995',
-  phone: '+33 6 XX XX XX XX',
-  email: 'jean@mail.com',
-  city: 'Paris',
-  signLanguage: 'LSF',
-};
 
 const personalFields = [
   { key: 'firstName', label: 'Prénom', icon: User, type: 'text' },
@@ -183,11 +175,13 @@ function AvatarChoiceCard({ active, name, description, tone, onClick }) {
   );
 }
 
-export default function Parametres() {
+export default function Parametres({ variant = 'deaf' }) {
   const navigate = useNavigate();
   const { disconnectSocket } = useCallSystemContext();
+  const storageKey = getProfileStorageKey(variant);
+  const roleLabel = variant === 'hearing' ? 'Utilisateur entendant' : 'Utilisateur sourd';
   const [dirty, setDirty] = useState(false);
-  const [profile, setProfile] = useState(initialProfile);
+  const [profile, setProfile] = useState(() => loadSettingsProfile(storageKey));
   const [avatar, setAvatar] = useState(() => localStorage.getItem('avatarChoice') || 'alex');
   const [sheet, setSheet] = useState(null);
   const [accessibility, setAccessibility] = useState({
@@ -214,13 +208,20 @@ export default function Parametres() {
     [profile]
   );
 
-  const fullName = `${profile.firstName} ${profile.lastName}`.trim();
+  const fullName = `${profile.firstName} ${profile.lastName}`.trim() || 'Mon profil';
+  const profileInitials =
+    [profile.firstName, profile.lastName]
+      .filter(Boolean)
+      .map((part) => part.charAt(0))
+      .join('')
+      .toUpperCase() || '?';
 
   const markDirty = () => setDirty(true);
 
   const updateAvatar = (nextAvatar) => {
     setAvatar(nextAvatar);
     localStorage.setItem('avatarChoice', nextAvatar);
+    window.dispatchEvent(new Event('wakwak-avatar-changed'));
     markDirty();
   };
 
@@ -260,18 +261,27 @@ export default function Parametres() {
   };
 
   const saveSettings = () => {
-    localStorage.setItem('wakwak_profile_data', JSON.stringify({ profile, accessibility, notifications, security }));
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({ profile, accessibility, notifications, security }),
+    );
     localStorage.setItem('avatarChoice', avatar);
+    window.dispatchEvent(new Event('wakwak-avatar-changed'));
+    const user = getWakwakUser();
+    const savedName = `${profile.firstName} ${profile.lastName}`.trim();
+    if (user && savedName) {
+      saveWakwakUser({ ...user, name: savedName });
+    }
     setDirty(false);
     setSheet({ type: 'simple', title: 'Enregistré', message: 'Vos paramètres ont été sauvegardés.' });
   };
 
   useEffect(() => {
+    setProfile(loadSettingsProfile(storageKey));
     try {
-      const saved = localStorage.getItem('wakwak_profile_data');
+      const saved = localStorage.getItem(storageKey);
       if (saved) {
         const data = JSON.parse(saved);
-        if (data.profile) setProfile(data.profile);
         if (data.accessibility) setAccessibility(data.accessibility);
         if (data.notifications) setNotifications(data.notifications);
         if (data.security) setSecurity(data.security);
@@ -279,10 +289,20 @@ export default function Parametres() {
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [storageKey]);
+
+  useEffect(() => {
+    const user = getWakwakUser();
+    if (!user) return;
+    if (variant === 'hearing' && user.role !== 'hearing') return;
+    if (variant === 'deaf' && user.role !== 'deaf') return;
+    setProfile(loadSettingsProfile(storageKey));
+  }, [storageKey, variant]);
 
   const confirmDelete = () => {
-    localStorage.removeItem('wakwak_profile_data');
+    localStorage.removeItem(storageKey);
+    localStorage.removeItem(getProfileStorageKey('deaf'));
+    localStorage.removeItem(getProfileStorageKey('hearing'));
     localStorage.removeItem('wakwak_user');
     localStorage.removeItem('userPhone');
     localStorage.removeItem('sessions');
@@ -326,7 +346,7 @@ export default function Parametres() {
         <section className="m-4 rounded-[20px] bg-white p-5 text-center shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
           <div className="relative mx-auto h-20 w-20">
             <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#4F46E5] to-[#9333EA] text-[24px] font-extrabold text-white shadow-inner">
-              {profile.firstName.charAt(0)}{profile.lastName.charAt(0)}
+              {profileInitials}
             </div>
             <button
               type="button"
@@ -337,7 +357,7 @@ export default function Parametres() {
             </button>
           </div>
           <div className="mt-3 text-[18px] font-bold text-[#1F2937]">{fullName}</div>
-          <div className="mt-1 text-[13px] font-medium text-[#6B7280]">Utilisateur sourd</div>
+          <div className="mt-1 text-[13px] font-medium text-[#6B7280]">{roleLabel}</div>
           <div className={`mx-auto mt-3 inline-flex items-center gap-1 rounded-full px-3 py-1 text-[12px] font-bold ${
             profileComplete ? 'bg-[#F0FDF4] text-[#16A34A]' : 'bg-[#FFFBEB] text-[#D97706]'
           }`}>

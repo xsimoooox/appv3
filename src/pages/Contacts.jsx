@@ -21,13 +21,11 @@ import {
   User,
   Heart,
   Hand,
-  UserRound,
   RefreshCw,
   Save,
   PhoneIncoming,
   LogIn,
   Camera,
-  CircleStop,
 } from 'lucide-react';
 import ZoneDActionBar from '../components/ZoneDActionBar';
 import SessionTopBar from '../components/SessionTopBar';
@@ -226,6 +224,25 @@ export default function Contacts() {
   const [avatarMode, setAvatarMode] = useState(
     () => localStorage.getItem('avatarChoice') || 'alex',
   );
+
+  useEffect(() => {
+    const syncAvatarFromSettings = () => {
+      setAvatarMode(localStorage.getItem('avatarChoice') || 'alex');
+    };
+    syncAvatarFromSettings();
+    window.addEventListener('storage', syncAvatarFromSettings);
+    window.addEventListener('wakwak-avatar-changed', syncAvatarFromSettings);
+    return () => {
+      window.removeEventListener('storage', syncAvatarFromSettings);
+      window.removeEventListener('wakwak-avatar-changed', syncAvatarFromSettings);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (screen === 'call') {
+      setAvatarMode(localStorage.getItem('avatarChoice') || 'alex');
+    }
+  }, [screen]);
   const [transcriptHistory, setTranscriptHistory] = useState([]);
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
@@ -1678,40 +1695,7 @@ export default function Contacts() {
             videoARef={videoARef}
             videoBRef={videoBRef}
             activeVideo={activeVideo}
-          >
-            <div className="avatar-actions shrink-0">
-              <div
-                className="avatar-action-btn avatar-action-btn--avatar avatar-action-btn--placeholder"
-                aria-hidden="true"
-              >
-                <Hand size={22} strokeWidth={2.25} />
-                <span>Signer</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  stopFrizittaPlayback();
-                  stopAlexPlayback();
-                  const next = avatarMode === 'alex' ? 'frizitta' : 'alex';
-                  localStorage.setItem('avatarChoice', next);
-                  setAvatarMode(next);
-                  showToast(`🔄 Avatar ${next === 'alex' ? 'ALEX' : 'FRIZITTA'}`);
-                }}
-                className="avatar-action-btn avatar-action-btn--avatar"
-                aria-label="Changer d'avatar"
-              >
-                <UserRound size={22} strokeWidth={2.25} />
-                <span>Avatar</span>
-              </button>
-              <div
-                className="avatar-action-btn avatar-action-btn--end avatar-action-btn--placeholder"
-                aria-hidden="true"
-              >
-                <CircleStop size={22} strokeWidth={2.25} />
-                <span>Terminer</span>
-              </div>
-            </div>
-          </RencontreAvatarSection>
+          />
 
           {/* ZONE C — TEXTE TRADUIT — min 58px */}
           <div className="bg-[#F9FAFB] border-t border-b border-[#E5E7EB] px-4 py-2.5 flex flex-col shrink-0 min-h-[96px] justify-center select-text">
