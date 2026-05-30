@@ -1280,7 +1280,7 @@ export default function Rencontre() {
               </div>
 
               {/* 3. CADRE AVATAR — ratio 3:4 strict, boutons en dessous */}
-              <div className="flex min-h-0 flex-grow flex-col items-center justify-center gap-4 overflow-hidden bg-[#F9FAFB] px-3 py-2">
+              <div className="rencontre-avatar-section">
                 <div
                   className={`avatar-container${
                     modeAvatar === 'alex'

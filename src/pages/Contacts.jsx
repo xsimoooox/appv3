@@ -27,6 +27,7 @@ import {
   PhoneIncoming,
   LogIn,
   Camera,
+  CircleStop,
 } from 'lucide-react';
 import ZoneDActionBar from '../components/ZoneDActionBar';
 import SessionTopBar from '../components/SessionTopBar';
@@ -1669,8 +1670,8 @@ export default function Contacts() {
             </div>
           </div>
 
-          {/* ZONE B — CADRE AVATAR (même cadrage / affichage que Rencontre) */}
-          <div className="flex min-h-0 flex-grow flex-col items-center justify-center gap-4 overflow-hidden bg-[#F9FAFB] px-3 py-2">
+          {/* ZONE B — CADRE AVATAR (visuellement identique à Rencontre) */}
+          <div className="rencontre-avatar-section call-screen-avatar-match">
             <div
               className={`avatar-container${
                 avatarMode === 'alex'
@@ -1706,6 +1707,13 @@ export default function Contacts() {
             </div>
 
             <div className="avatar-actions shrink-0">
+              <div
+                className="avatar-action-btn avatar-action-btn--avatar avatar-action-btn--placeholder"
+                aria-hidden="true"
+              >
+                <Hand size={22} strokeWidth={2.25} />
+                <span>Signer</span>
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -1722,23 +1730,14 @@ export default function Contacts() {
                 <UserRound size={22} strokeWidth={2.25} />
                 <span>Avatar</span>
               </button>
+              <div
+                className="avatar-action-btn avatar-action-btn--end avatar-action-btn--placeholder"
+                aria-hidden="true"
+              >
+                <CircleStop size={22} strokeWidth={2.25} />
+                <span>Terminer</span>
+              </div>
             </div>
-
-            {(avatarMode === 'frizitta' && currentLetter) || (avatarMode === 'alex' && currentAlexWord) ? (
-              <p className="m-0 text-center text-[9px] font-bold text-[#6B7280] select-none px-2">
-                {avatarMode === 'frizitta' && currentLetter && (
-                  <>
-                    Lettre : <span className="text-violet-500">[{currentLetter}]</span>
-                    {currentWord ? ` (${currentWord})` : ''}
-                  </>
-                )}
-                {avatarMode === 'alex' && currentAlexWord && (
-                  <>
-                    Mot : <span className="text-[#4F46E5]">{currentAlexWord}</span>
-                  </>
-                )}
-              </p>
-            ) : null}
           </div>
 
           {/* ZONE C — TEXTE TRADUIT — min 58px */}
