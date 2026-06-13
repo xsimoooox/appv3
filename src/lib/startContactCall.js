@@ -71,8 +71,10 @@ export async function startContactCall({
 }) {
   if (isSocketCallAvailable() && socketCallUser) {
     try {
-      await socketCallUser(targetPhone, contactName);
-      return { mode: 'socket' };
+      const socketResult = await socketCallUser(targetPhone, contactName);
+      if (socketResult === true) {
+        return { mode: 'socket' };
+      }
     } catch {
       /* fallback firebase */
     }
