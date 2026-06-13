@@ -71,5 +71,6 @@ export function findContactIdForIncoming(role, callerPhone, fallbackId) {
 
 export function buildCallJoinPath(role, contactId, code) {
   const prefix = role === 'hearing' ? '/entendant/call' : '/call';
-  return `${prefix}/${contactId}?code=${encodeURIComponent(code)}`;
+  const safeContactId = contactId || 'unknown';
+  return `${prefix}/${encodeURIComponent(safeContactId)}?code=${encodeURIComponent(code)}`;
 }

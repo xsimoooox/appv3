@@ -400,6 +400,21 @@ export default function Contacts() {
 
   // Get active contact
   const activeContact = contacts.find(c => c.id === id);
+  const callContact = screen === 'call'
+    ? activeContact || {
+        id: id || 'unknown',
+        firstName: 'Interlocuteur',
+        lastName: '',
+        phone: '',
+        role: 'Entendant',
+        relationType: 'Appel',
+        status: 'online',
+        photoUrl: null,
+        isEmergencyContact: false,
+        isFavorite: false,
+        isBlocked: false,
+      }
+    : activeContact;
 
   const handleCallContact = useCallback(
     async (contact) => {
@@ -994,8 +1009,9 @@ export default function Contacts() {
 
   // Copy transcript to clipboard
   const copyTranscript = () => {
+    const contactName = callContact?.firstName || 'Interlocuteur';
     const text = transcriptHistory
-      .map(m => `[${m.sender === 'me' ? 'Moi (LSF)' : activeContact.firstName}] ${m.text}`)
+      .map(m => `[${m.sender === 'me' ? 'Moi (LSF)' : contactName}] ${m.text}`)
       .join('\n');
     navigator.clipboard.writeText(text || "Aucune conversation.");
     showToast("📋 Transcript copié !");
@@ -1025,17 +1041,17 @@ export default function Contacts() {
   const handleSaveConversation = (shouldSave) => {
     setShowSaveDialog(false);
     
-    if (shouldSave && activeContact) {
+    if (shouldSave && callContact) {
       const newSession = {
         id: 'session_' + Date.now(),
-        contactId: activeContact.id,
-        contactName: `${activeContact.firstName} ${activeContact.lastName}`,
+        contactId: callContact.id,
+        contactName: `${callContact.firstName} ${callContact.lastName}`,
         date: new Date().toLocaleDateString('fr-FR'),
         time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
         duration: callDuration,
         transcriptExcerpt: transcriptHistory.length > 0 ? transcriptHistory[transcriptHistory.length - 1].text : "Appel sans échange",
         fullTranscript: transcriptHistory.map(m => ({
-          sender: m.sender === 'me' ? 'Moi' : activeContact.firstName,
+          sender: m.sender === 'me' ? 'Moi' : callContact.firstName,
           text: m.text,
           time: m.timestamp
         }))
@@ -1049,8 +1065,8 @@ export default function Contacts() {
       showToast("💾 Conversation enregistrée avec succès !");
     }
 
-    // Go back to fiche contact
-    navigate(`/contacts/${id}`);
+    // Go back to fiche contact or contact list if this call came from an unknown route
+    navigate(activeContact ? `/contacts/${id}` : '/contacts');
   };
 
   // Helper: Get last call for active contact
@@ -1643,10 +1659,10 @@ export default function Contacts() {
       {/* ========================================================
           SCREEN 4: LIVE CALL IN PROGRESS (FULL SCREEN TAKEOVER)
           ======================================================== */}
-      {screen === 'call' && activeContact && (
+      {screen === 'call' && (
         <div className="fixed inset-0 bg-[#F0F2F5] z-[9999] flex flex-col justify-between font-sans overflow-hidden text-[#1F2937] select-none max-w-md mx-auto h-[calc(100dvh-80px)] bottom-[80px] animate-fade-in">
           <SessionTopBar
-            title={`${activeContact.firstName} ${activeContact.lastName}`.trim()}
+            title={`${callContact.firstName} ${callContact.lastName}`.trim()}
             subtitle="Appel en cours"
             onBack={() => setShowEndDialog(true)}
             backLabel="Quitter l'appel"
@@ -1801,7 +1817,7 @@ export default function Contacts() {
           <div className="absolute top-12 left-1/2 -translate-x-1/2 bg-white/90 border border-[#E5E7EB] px-3 py-1 rounded-full flex items-center gap-2 z-10 shadow-lg pointer-events-none select-none">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
             <span className="text-[10px] font-black text-[#1F2937] tracking-wide">
-              {activeContact.firstName} — {Math.floor(callDuration / 60).toString().padStart(2, '0')}:{(callDuration % 60).toString().padStart(2, '0')}
+              {callContact.firstName} — {Math.floor(callDuration / 60).toString().padStart(2, '0')}:{(callDuration % 60).toString().padStart(2, '0')}
             </span>
           </div>
 
