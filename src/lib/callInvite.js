@@ -17,9 +17,10 @@ export function invitePathForPhone(phone) {
 export function isInviteValid(invite) {
   if (!invite || invite.status !== 'ringing') return false;
   const expiresAt = invite.expiresAt || 0;
-  if (expiresAt && Date.now() > expiresAt) return false;
+  // Allow up to 10 minutes of clock skew between devices
+  if (expiresAt && Date.now() > expiresAt + 10 * 60 * 1000) return false;
   const createdAt = invite.createdAt || 0;
-  if (!expiresAt && Date.now() - createdAt > CALL_INVITE_TTL_MS) return false;
+  if (!expiresAt && Date.now() - createdAt > CALL_INVITE_TTL_MS + 10 * 60 * 1000) return false;
   return true;
 }
 
