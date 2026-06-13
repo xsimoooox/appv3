@@ -4,6 +4,7 @@ import {
   clearCallInvite,
   endRealtimeCall,
   getClientUid,
+  getFirebaseData,
   joinRealtimeCall,
   listenFirebaseValue,
   storeSessionCode,
@@ -21,6 +22,7 @@ import { getWakwakUser } from '../lib/wakwakUser';
 import { normalizePhoneNumber } from '../lib/phoneUtils';
 
 const DISMISSED_KEY = 'wakwak_dismissed_calls';
+const POLL_INTERVAL_MS = 8000; // Fallback poll every 8s in case EventSource misses events
 
 function loadDismissed() {
   try {
@@ -36,24 +38,48 @@ function dismissCode(code) {
   sessionStorage.setItem(DISMISSED_KEY, JSON.stringify([...set]));
 }
 
+function resolveMyPhone() {
+  const user = getWakwakUser();
+  return normalizePhoneNumber(
+    user?.phoneNumber || localStorage.getItem('userPhone') || ''
+  );
+}
+
 export function useGlobalCallListener() {
   const navigate = useNavigate();
   const [incomingCall, setIncomingCall] = useState(null);
   const [accepting, setAccepting] = useState(false);
+
+  // Reactive phone state so the effect re-runs when user logs in
+  const [myPhone, setMyPhone] = useState(() => resolveMyPhone());
+
   const ringingRef = useRef(null);
   const dismissedRef = useRef(loadDismissed());
 
   const user = getWakwakUser();
-  const myPhone = normalizePhoneNumber(
-    user?.phoneNumber || localStorage.getItem('userPhone') || ''
-  );
   const myUidRef = useRef(
     user?.id || getClientUid(user?.role === 'hearing' ? 'hearing' : 'deaf'),
   );
   const myRoleRef = useRef(user?.role === 'hearing' ? 'hearing' : 'deaf');
 
+  // Re-resolve phone every few seconds in case user logs in after mount
+  useEffect(() => {
+    const id = setInterval(() => {
+      const phone = resolveMyPhone();
+      if (phone) {
+        setMyPhone(phone);
+        // Update role and uid refs too
+        const u = getWakwakUser();
+        if (u?.id) myUidRef.current = u.id;
+        if (u?.role) myRoleRef.current = u.role === 'hearing' ? 'hearing' : 'deaf';
+      }
+    }, 2000);
+    return () => clearInterval(id);
+  }, []);
+
   const processInvites = useCallback(
-    (invitesMap) => {
+    (invitesMap, currentMyPhone) => {
+      const phone = currentMyPhone || myPhone;
       if (!invitesMap || typeof invitesMap !== 'object') {
         if (ringingRef.current) {
           ringingRef.current = null;
@@ -70,9 +96,9 @@ export function useGlobalCallListener() {
         .filter((inv) => String(inv.callerUid || inv.caller || '') !== String(myUidRef.current))
         .filter((inv) => {
           const target = normalizePhoneNumber(inv.targetPhone || '');
-          if (target && myPhone && target !== myPhone) return false;
+          if (target && phone && target !== phone) return false;
           const caller = normalizePhoneNumber(inv.callerPhone || '');
-          if (caller && myPhone && caller === myPhone) return false;
+          if (caller && phone && caller === phone) return false;
           return true;
         })
         .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
@@ -86,6 +112,9 @@ export function useGlobalCallListener() {
         }
         return;
       }
+
+      // Don't re-trigger if same call is already ringing
+      if (ringingRef.current?.code === latest.code) return;
 
       const payload = {
         ...latest,
@@ -113,18 +142,43 @@ export function useGlobalCallListener() {
     [myPhone],
   );
 
+  // Main EventSource listener
   useEffect(() => {
     if (!myPhone) return undefined;
 
     const path = invitePathForPhone(myPhone);
     if (!path) return undefined;
 
-    const stopInvites = listenFirebaseValue(path, processInvites);
+    const stopInvites = listenFirebaseValue(path, (data) => processInvites(data, myPhone));
 
     return () => {
       stopInvites();
       stopIncomingRingtone();
     };
+  }, [myPhone, processInvites]);
+
+  // Polling fallback: re-fetch invites from Firebase every POLL_INTERVAL_MS
+  // This catches cases where the EventSource connection is lost silently
+  useEffect(() => {
+    if (!myPhone) return undefined;
+
+    const path = invitePathForPhone(myPhone);
+    if (!path) return undefined;
+
+    const poll = async () => {
+      try {
+        const data = await getFirebaseData(path);
+        processInvites(data, myPhone);
+      } catch {
+        /* ignore network errors */
+      }
+    };
+
+    const id = setInterval(poll, POLL_INTERVAL_MS);
+    // Run immediately once
+    poll();
+
+    return () => clearInterval(id);
   }, [myPhone, processInvites]);
 
   const acceptIncomingCall = useCallback(async () => {
@@ -146,7 +200,7 @@ export function useGlobalCallListener() {
         calleePhone: myPhone,
       });
     } catch {
-      /* déjà joint */
+      /* already joined */
     }
 
     dismissCode(call.code);
