@@ -44,7 +44,9 @@ export function useGlobalCallListener() {
   const dismissedRef = useRef(loadDismissed());
 
   const user = getWakwakUser();
-  const myPhone = normalizePhoneNumber(user?.phoneNumber || '');
+  const myPhone = normalizePhoneNumber(
+    user?.phoneNumber || localStorage.getItem('userPhone') || ''
+  );
   const myUidRef = useRef(
     user?.id || getClientUid(user?.role === 'hearing' ? 'hearing' : 'deaf'),
   );

@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 
 const getSocketUrl = () => {
   if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
+  if (import.meta.env.PROD) return '';
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
     return `http://${window.location.hostname}:3001`;
   }

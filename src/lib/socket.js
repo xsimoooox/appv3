@@ -2,6 +2,7 @@ import { io } from 'socket.io-client';
 
 const getSocketUrl = () => {
   if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
+  if (import.meta.env.PROD) return '';
   if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
     return `http://${window.location.hostname}:3001`;
   }
@@ -34,8 +35,8 @@ export function initSocket(user) {
   }
 
   // Skip socket on production if no env URL is set
-  if (IS_PRODUCTION && SOCKET_URL === 'http://localhost:3001') {
-    console.warn('[SOCKET] Socket disabled in production (no VITE_SOCKET_URL configured)');
+  if (IS_PRODUCTION && !SOCKET_URL) {
+    console.warn('[SOCKET] Socket disabled in production (no VITE_SOCKET_URL configured). App will use Firebase fallback.');
     socketError = 'Socket service not available';
     return null;
   }
