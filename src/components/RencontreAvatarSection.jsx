@@ -1,5 +1,6 @@
 import AvatarStage from './AvatarStage';
 import AlexStage from './AlexStage';
+import LiveCallAvatar from './LiveCallAvatar';
 
 /**
  * Section avatar identique à Rencontre.jsx (cadre + Frizitta / Alex centrés).
@@ -7,10 +8,12 @@ import AlexStage from './AlexStage';
 export default function RencontreAvatarSection({
   modeAvatar,
   frizittaDb,
+  alexDb,
   currentLetterUrl,
   videoARef,
   videoBRef,
   activeVideo,
+  liveText = '',
   children,
 }) {
   const frizittaSrc =
@@ -26,7 +29,16 @@ export default function RencontreAvatarSection({
         }`}
       >
         <div className="avatar-inner">
-          {modeAvatar === 'frizitta' && (
+          {liveText && (
+            <LiveCallAvatar
+              key={`${modeAvatar}-${liveText}`}
+              mode={modeAvatar}
+              text={liveText}
+              frizittaDb={frizittaDb}
+              alexDb={alexDb}
+            />
+          )}
+          {!liveText && modeAvatar === 'frizitta' && (
             <div
               className="flex h-full w-full items-center justify-center overflow-hidden"
               id="frizitta-player"
@@ -35,7 +47,7 @@ export default function RencontreAvatarSection({
             </div>
           )}
 
-          {modeAvatar === 'alex' && (
+          {!liveText && modeAvatar === 'alex' && (
             <div className="flex h-full w-full items-center justify-center">
               <AlexStage
                 videoARef={videoARef}

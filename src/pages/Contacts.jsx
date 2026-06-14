@@ -1739,10 +1739,12 @@ export default function Contacts() {
           <RencontreAvatarSection
             modeAvatar={avatarMode}
             frizittaDb={frizittaDb}
+            alexDb={alexDb}
             currentLetterUrl={currentLetterUrl}
             videoARef={videoARef}
             videoBRef={videoBRef}
             activeVideo={activeVideo}
+            liveText={interlocuteurDit}
           >
             <div className="avatar-actions shrink-0">
               <div
