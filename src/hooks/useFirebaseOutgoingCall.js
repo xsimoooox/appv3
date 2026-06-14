@@ -111,6 +111,7 @@ export function useFirebaseOutgoingCall({ onToast, onStartCall, onStopCall } = {
 
   return {
     firebaseOutgoingCall: outgoing,
+    firebaseActiveCode: outgoing?.code || '',
     startFirebaseOutgoing,
     cancelFirebaseOutgoing,
   };

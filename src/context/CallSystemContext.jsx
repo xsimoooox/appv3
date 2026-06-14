@@ -79,6 +79,7 @@ export function CallSystemProvider({ children }) {
 
   const {
     firebaseOutgoingCall,
+    firebaseActiveCode,
     startFirebaseOutgoing,
     cancelFirebaseOutgoing,
   } = useFirebaseOutgoingCall({
@@ -181,6 +182,7 @@ export function CallSystemProvider({ children }) {
       ...callSystem,
       getRealtimeStatus,
       firebaseIncomingCall,
+      firebaseActiveCode,
       acceptFirebaseIncomingCall,
       rejectFirebaseIncomingCall,
       presenceByPhone,
@@ -191,6 +193,7 @@ export function CallSystemProvider({ children }) {
       callSystem,
       getRealtimeStatus,
       firebaseIncomingCall,
+      firebaseActiveCode,
       acceptFirebaseIncomingCall,
       rejectFirebaseIncomingCall,
       presenceByPhone,

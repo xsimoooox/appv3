@@ -181,6 +181,8 @@ export default function Contacts() {
     callUser,
     getRealtimeStatus,
     activeCall,
+    firebaseActiveCode,
+    firebaseIncomingCall,
     endCall,
     sendSignText,
     receivedText,
@@ -832,7 +834,11 @@ export default function Contacts() {
   };
 
   const callSessionCode =
-    activeSessionCode || new URLSearchParams(location.search).get('code') || '';
+    activeSessionCode
+    || new URLSearchParams(location.search).get('code')
+    || firebaseActiveCode
+    || firebaseIncomingCall?.code
+    || '';
   const { calleeJoined, calleeJoinedName } = useCalleeJoinedSignal(
     screen === 'call' ? callSessionCode : '',
   );
@@ -858,7 +864,10 @@ export default function Contacts() {
     clearTimeout(avatarTranscriptTimerRef.current);
 
     const codeFromUrl = new URLSearchParams(location.search).get('code');
-    const storedCode = codeFromUrl || getStoredSessionCode();
+    const storedCode = codeFromUrl
+      || firebaseActiveCode
+      || firebaseIncomingCall?.code
+      || getStoredSessionCode();
     if (storedCode) {
       setSessionCodeInput(storedCode);
       joinSessionByCode(storedCode);
@@ -876,7 +885,28 @@ export default function Contacts() {
       stopFrizittaPlayback();
       stopAlexPlayback();
     };
-  }, [screen, activeContact?.id, location.search]);
+  }, [
+    screen,
+    activeContact?.id,
+    location.search,
+    firebaseActiveCode,
+    firebaseIncomingCall?.code,
+  ]);
+
+  useEffect(() => {
+    if (screen !== 'call') return;
+    const code = new URLSearchParams(location.search).get('code')
+      || firebaseActiveCode
+      || firebaseIncomingCall?.code;
+    if (!code || code === activeSessionCode) return;
+    joinSessionByCode(code);
+  }, [
+    screen,
+    location.search,
+    firebaseActiveCode,
+    firebaseIncomingCall?.code,
+    activeSessionCode,
+  ]);
 
   useEffect(() => {
     if (screen !== 'call' || avatarMode !== 'alex') return;
@@ -1158,9 +1188,9 @@ export default function Contacts() {
     return `${c.firstName[0] || ''}${c.lastName[0] || ''}`.toUpperCase();
   };
 
-  const displayedRemoteText = (activeCall && receivedText)
-    ? receivedText
-    : (remoteTranscript.text || interlocuteurDit);
+  const displayedRemoteText = activeSessionCode
+    ? (remoteTranscript.text || interlocuteurDit)
+    : ((activeCall && receivedText) ? receivedText : interlocuteurDit);
   const displayedRemoteWords = displayedRemoteText ? displayedRemoteText.split(' ').filter(Boolean) : [];
 
   // RENDER SWITCH
