@@ -56,7 +56,7 @@ export async function apiFetch(path, options = {}) {
   } catch {
     return {
       res: { ok: false, status: 0 },
-      data: { error: 'Impossible de joindre le serveur. Lancez : npm run server' },
+      data: { error: 'Serveur local arrêté. Relancez l’application avec : npm run dev' },
     };
   }
 
@@ -71,10 +71,6 @@ export async function apiFetch(path, options = {}) {
   }
 
   return { res, data };
-}
-
-export async function checkApiHealth() {
-  return apiFetch('/health');
 }
 
 export async function checkPhoneExists(phoneNumber) {

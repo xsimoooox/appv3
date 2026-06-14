@@ -1,10 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   registerAccount,
   loginAccount,
   getAuthErrorMessage,
-  checkApiHealth,
 } from '../lib/api';
 import { initSocket } from '../lib/socket';
 import { registerSocketUser } from '../lib/registerSocketUser';
@@ -130,15 +129,6 @@ export default function Auth() {
     setAuthError('');
 
     try {
-      const health = await checkApiHealth();
-      if (!health.res.ok || !health.data?.ok) {
-        setAuthError(
-          health.data?.message || 'Serveur ou base de données indisponible. Réessayez dans quelques secondes.',
-        );
-        setSubmitting(false);
-        return;
-      }
-
       const { res, data } = await loginAccount({ phoneNumber, password });
 
       if (!res.ok) {
@@ -161,15 +151,6 @@ export default function Auth() {
     setAccountExists(false);
 
     try {
-      const health = await checkApiHealth();
-      if (!health.res.ok || !health.data?.ok) {
-        setAuthError(
-          health.data?.message || 'Serveur ou base de données indisponible. Réessayez dans quelques secondes.',
-        );
-        setSubmitting(false);
-        return;
-      }
-
       const { res, data } = await registerAccount({
         name: fullName.trim(),
         phoneNumber,
