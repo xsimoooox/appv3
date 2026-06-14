@@ -235,7 +235,7 @@ export default function Dashboard({ role = 'deaf' }) {
       <ToastStack notifications={toasts} onDismiss={dismissNotice} />
 
       <header className="vox-topbar">
-        <BrandLogo compact />
+        <BrandLogo compact hideText />
         <div className="vox-topbar__title">
           <strong>Tableau de bord</strong>
           <span>{role === 'hearing' ? 'Espace personne entendante' : 'Espace communication LSF'}</span>

@@ -24,24 +24,103 @@ const COUNTRY_CODES = [
 
 const NAME_PATTERN = /^[\p{L}\s'-]{3,}$/u;
 
+function ArrowRightIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="M8 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ArrowLeftIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="M16 19l-7-7 7-7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="M6 12.5l4 4 8-8" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function WarningIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" aria-hidden="true">
+      <path d="M12 4.5 3.5 19h17L12 4.5z" stroke="currentColor" strokeWidth="2" fill="rgba(227, 25, 64, 0.08)" />
+      <path d="M12 8.75v4.5" stroke="#E53935" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="12" cy="17.5" r="1" fill="#E53935" />
+    </svg>
+  );
+}
+
+function DeafStatusIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <circle cx="12" cy="12" r="10" fill="#EEF2FF" />
+      <path d="M7 13.5c0-3 2.5-5.5 5.5-5.5s5.5 2.5 5.5 5.5c0 2.75-1.75 5-4 5.75" stroke="#0000B4" strokeWidth="2" fill="none" strokeLinecap="round" />
+      <path d="M12 8.5v2" stroke="#0000B4" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function HearingStatusIcon({ className }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <circle cx="12" cy="12" r="10" fill="#EAF5EB" />
+      <path d="M14 7.5c2 1.25 3.5 3.5 3.5 6.5 0 3.75-3 6.5-6.5 6.5-1.5 0-2.75-1-3.5-2.5" stroke="#2E7D32" strokeWidth="2" fill="none" strokeLinecap="round" />
+      <circle cx="9" cy="12" r="1.5" fill="#2E7D32" />
+    </svg>
+  );
+}
+
+function DeafIllustration({ className }) {
+  return (
+    <svg viewBox="0 0 120 120" className={className} aria-hidden="true">
+      <rect x="10" y="28" width="100" height="80" rx="24" fill="#EEF2FF" />
+      <circle cx="60" cy="44" r="16" fill="#0000B4" opacity="0.25" />
+      <path d="M40 74c0-14 10-24 20-24s20 10 20 24" stroke="#0000B4" strokeWidth="6" fill="none" strokeLinecap="round" />
+      <path d="M34 48c8-10 18-14 26-14s18 4 26 14" stroke="#0000B4" strokeWidth="5" fill="none" strokeLinecap="round" />
+      <path d="M44 40c0 8-2 18 6 22" stroke="#0000B4" strokeWidth="4" fill="none" strokeLinecap="round" />
+      <path d="M76 40c0 8 2 18-6 22" stroke="#0000B4" strokeWidth="4" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function HearingIllustration({ className }) {
+  return (
+    <svg viewBox="0 0 120 120" className={className} aria-hidden="true">
+      <rect x="10" y="20" width="100" height="88" rx="24" fill="#EAF5EB" />
+      <path d="M64 28c9 3 16 11 16 20s-7 20-16 24" stroke="#2E7D32" strokeWidth="6" fill="none" strokeLinecap="round" />
+      <path d="M52 40c-6 4-8 10-8 16s2 12 8 16" stroke="#2E7D32" strokeWidth="6" fill="none" strokeLinecap="round" />
+      <circle cx="56" cy="60" r="4" fill="#2E7D32" />
+      <path d="M76 42c0 8-4 14-10 18" stroke="#2E7D32" strokeWidth="4" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function RoleBadge({ role }) {
   if (role === 'deaf') {
     return (
       <span
-        className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-1.5 rounded-full"
+        className="inline-flex items-center gap-2 text-[11px] font-bold px-3.5 py-1.5 rounded-full"
         style={{ background: '#EEEEFF', color: '#0000B4' }}
       >
-        <i className="ti ti-ear-off" style={{ fontSize: 12 }} />
+        <DeafStatusIcon className="w-4 h-4" />
         Personne sourde
       </span>
     );
   }
   return (
     <span
-      className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-1.5 rounded-full"
+      className="inline-flex items-center gap-2 text-[11px] font-bold px-3.5 py-1.5 rounded-full"
       style={{ background: '#EAF5EB', color: '#2E7D32' }}
     >
-      <i className="ti ti-ear" style={{ fontSize: 12 }} />
+      <HearingStatusIcon className="w-4 h-4" />
       Personne entendante
     </span>
   );
@@ -214,7 +293,7 @@ export default function Auth() {
             animation: 'authCheckPop 600ms ease forwards',
           }}
         >
-          <i className="ti ti-check" style={{ fontSize: 36, color: '#fff' }} />
+          <CheckIcon className="w-9 h-9 text-white" />
         </div>
         <p className="text-[13px] m-0 mb-1" style={{ color: '#666680' }}>
           Bienvenue,
@@ -245,12 +324,12 @@ export default function Auth() {
           style={{ color: '#0000B4' }}
           aria-label="Retour"
         >
-          <i className="ti ti-arrow-left" style={{ fontSize: 20 }} />
+          <ArrowLeftIcon className="w-5 h-5" />
         </button>
 
         <div className="px-5 pb-10 max-w-md mx-auto">
           <div className="flex flex-col items-center mb-4">
-            <BrandLogo compact className="mb-2" />
+            <BrandLogo compact hideText markSize={64} className="mb-4" />
             {!isLoginMode && selectedRole && <RoleBadge role={selectedRole} />}
           </div>
 
@@ -349,9 +428,10 @@ export default function Auth() {
                   {phoneError}
                 </span>
               )}
-              <p className="text-[10px] m-0 mt-1.5" style={{ color: '#D25A1E' }}>
-                ⚠️ Ce numéro sera votre identifiant permanent. Il ne pourra pas être modifié.
-              </p>
+              <div className="flex items-start gap-2 mt-1.5 text-[10px]" style={{ color: '#D25A1E' }}>
+                <WarningIcon className="w-3.5 h-3.5 shrink-0" />
+                <span>Ce numéro sera votre identifiant permanent. Il ne pourra pas être modifié.</span>
+              </div>
             </div>
 
             <label className="block">
@@ -422,7 +502,7 @@ export default function Auth() {
                 style={{ background: '#FFFFFF', border: '1px solid #D9D9E8' }}
               >
                 <p className="text-[12px] m-0 mb-1" style={{ color: '#16163A' }}>
-                  👤 {fullName.trim()}
+                  Profil : {fullName.trim()}
                 </p>
                 <p className="text-[11px] m-0 mb-2" style={{ color: '#666680' }}>
                   {phoneNumber}
@@ -452,7 +532,7 @@ export default function Auth() {
               ) : (
                 <>
                   {isLoginMode || accountExists ? 'Se connecter' : 'Commencer'}
-                  <i className="ti ti-arrow-right" style={{ fontSize: 16 }} />
+                  <ArrowRightIcon className="w-4 h-4" />
                 </>
               )}
             </button>
@@ -481,20 +561,12 @@ export default function Auth() {
       style={{ background: '#F0F0F0' }}
     >
       <div className="flex flex-col items-center mb-8">
-        <BrandLogo className="mb-1" />
-        <p className="text-[13px] text-center m-0 mt-2 mb-2" style={{ color: '#666680' }}>
-          Communication sans frontières
+        <BrandLogo hideText markSize={92} className="mb-4" />
+        <p className="text-[13px] text-center m-0 mt-2 mb-2 max-w-sm" style={{ color: '#4B5563' }}>
+          Choisissez votre profil pour accéder à une interface adaptée et sécurisée.
         </p>
-        <div
-          style={{
-            width: 40,
-            height: 2,
-            background: '#0000B4',
-            borderRadius: 1,
-            marginBottom: 32,
-          }}
-        />
-        <p className="text-[15px] font-bold m-0" style={{ color: '#16163A' }}>
+        <div className="h-1.5 w-16 rounded-full bg-[#0000B4] mb-6" />
+        <p className="text-[20px] font-extrabold m-0" style={{ color: '#111827' }}>
           Qui êtes-vous ?
         </p>
       </div>
@@ -533,86 +605,70 @@ export default function Auth() {
         <button
           type="button"
           onClick={() => goToForm('deaf')}
-          className="w-full text-left border-none cursor-pointer transition-colors"
+          className="w-full text-left border-none cursor-pointer transition-all"
           style={{
             background: '#FFFFFF',
             border: '1.5px solid #000096',
             borderRadius: 16,
-            padding: '20px 16px',
+            padding: '20px 18px',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.borderColor = '#0000B4';
-            e.currentTarget.style.background = '#EEEEFF';
+            e.currentTarget.style.background = '#F7F9FF';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.borderColor = '#000096';
             e.currentTarget.style.background = '#FFFFFF';
           }}
         >
-          <div className="flex items-center gap-3.5">
-            <div
-              className="flex items-center justify-center shrink-0"
-              style={{
-                width: 48,
-                height: 48,
-                background: '#EEEEFF',
-                borderRadius: 12,
-              }}
-            >
-              <i className="ti ti-ear-off" style={{ fontSize: 24, color: '#0000B4' }} />
+          <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center shrink-0 rounded-2xl bg-[#EEF2FF] p-3">
+              <DeafIllustration className="w-14 h-14" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[14px] font-bold" style={{ color: '#16163A' }}>
+              <div className="text-[15px] font-extrabold" style={{ color: '#111827' }}>
                 Personne sourde
               </div>
-              <div className="text-[11px] mt-0.5" style={{ color: '#666680' }}>
-                Communication LSF via gants + avatar
+              <div className="text-[12px] mt-1" style={{ color: '#4B5563' }}>
+                Interface LSF dédiée pour le gant et la traduction visuelle.
               </div>
             </div>
-            <i className="ti ti-chevron-right shrink-0" style={{ fontSize: 18, color: '#878787' }} />
+            <ArrowRightIcon className="w-5 h-5 text-slate-400" />
           </div>
         </button>
 
         <button
           type="button"
           onClick={() => goToForm('hearing')}
-          className="w-full text-left border-none cursor-pointer transition-colors"
+          className="w-full text-left border-none cursor-pointer transition-all"
           style={{
             background: '#FFFFFF',
             border: '1.5px solid #000096',
             borderRadius: 16,
-            padding: '20px 16px',
+            padding: '20px 18px',
           }}
           onMouseEnter={(e) => {
             e.currentTarget.style.borderColor = '#2E7D32';
-            e.currentTarget.style.background = '#F0F0F0';
+            e.currentTarget.style.background = '#F0F8F2';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.borderColor = '#000096';
             e.currentTarget.style.background = '#FFFFFF';
           }}
         >
-          <div className="flex items-center gap-3.5">
-            <div
-              className="flex items-center justify-center shrink-0"
-              style={{
-                width: 48,
-                height: 48,
-                background: '#EAF5EB',
-                borderRadius: 12,
-              }}
-            >
-              <i className="ti ti-ear" style={{ fontSize: 24, color: '#2E7D32' }} />
+          <div className="flex items-center gap-4">
+            <div className="flex items-center justify-center shrink-0 rounded-2xl bg-[#EAF5EB] p-3">
+              <HearingIllustration className="w-14 h-14" />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[14px] font-bold" style={{ color: '#16163A' }}>
+              <div className="text-[15px] font-extrabold" style={{ color: '#111827' }}>
                 Personne entendante
               </div>
-              <div className="text-[11px] mt-0.5" style={{ color: '#666680' }}>
-                Reçoit la traduction LSF en texte + voix
+              <div className="text-[12px] mt-1" style={{ color: '#4B5563' }}>
+                Interface texte et voix pour recevoir la traduction LSF.
               </div>
             </div>
-            <i className="ti ti-chevron-right shrink-0" style={{ fontSize: 18, color: '#878787' }} />
+            <ArrowRightIcon className="w-5 h-5 text-slate-400" />
           </div>
         </button>
         <button

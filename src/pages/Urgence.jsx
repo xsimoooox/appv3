@@ -264,36 +264,8 @@ export default function Urgence() {
     <div className="min-h-screen bg-[#F0F0F0] text-slate-100 flex flex-col justify-between select-none pb-2">
       
       {/* 72px SLICK HEADER */}
-      <header className={`h-[72px] shrink-0 px-4 border-b flex items-center justify-between sticky top-0 backdrop-blur-xl bg-slate-900/80 z-30 transition-all duration-300 ${sosStatus === 'active' ? 'border-rose-500/40' : 'border-white/5'}`}>
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center border border-indigo-500/20 shadow-lg shadow-indigo-600/20">
-            <VolumeX size={18} className="text-white" />
-          </div>
-          <div>
-            <h2 className="text-[14px] font-bold text-slate-200 tracking-wide m-0">VoxManus Web</h2>
-            <span className="text-[10px] font-semibold text-indigo-400 block -mt-0.5">Veille d'urgence LSF</span>
-          </div>
-        </div>
-
-        <span className="text-xs font-mono font-bold text-slate-400 bg-slate-950/40 px-3 py-1 rounded-full border border-white/5">
-          {currentTime || '00:00:00'}
-        </span>
-
-        <div className="flex items-center gap-2">
-          {batteryLevel < 20 && (
-            <div className="flex items-center gap-1 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded text-[10px] font-bold text-rose-400">
-              <Battery size={12} className="animate-pulse" />
-              {batteryLevel}%
-            </div>
-          )}
-          <div className="w-8 h-8 rounded-full flex items-center justify-center bg-slate-950 border border-white/5">
-            <Shield size={14} className={sosStatus === 'active' ? 'text-rose-500' : 'text-emerald-500'} />
-          </div>
-        </div>
-      </header>
-
       {/* BODY DASHBOARD */}
-      <main className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-4 max-w-md mx-auto w-full pb-20">
+      <main className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4 max-w-md mx-auto w-full pb-20">
         
         {/* STATUS BANNER */}
         <div className={`rounded-2xl border p-4 transition-all duration-300 ${
@@ -446,53 +418,31 @@ export default function Urgence() {
         {/* GPS LOCATION MAP OVERLAY */}
         <div className="bg-slate-900/60 border border-white/5 rounded-2xl p-4">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-slate-300">📍 Localisation Réelle</span>
-            {locationStatus === 'ready' && (
-              <button
-                onClick={() => setLocationStatus('loading')}
-                className="w-8 h-8 rounded-full bg-slate-800/50 border border-white/5 flex items-center justify-center hover:bg-slate-700 active:scale-90"
-              >
-                <RefreshCw size={12} className="text-slate-400" />
-              </button>
-            )}
+            <span className="text-xs font-bold text-slate-300">Carte interactive</span>
+            <button
+              onClick={() => setLocationStatus('loading')}
+              className="w-8 h-8 rounded-full bg-slate-800/50 border border-white/5 flex items-center justify-center hover:bg-slate-700 active:scale-90"
+              aria-label="Rafraîchir la carte"
+            >
+              <RefreshCw size={12} className="text-slate-400" />
+            </button>
           </div>
 
-          {locationStatus === 'loading' || locationStatus === 'idle' ? (
-            <div className="h-28 rounded-xl bg-slate-950/40 border border-white/5 flex flex-col items-center justify-center gap-2">
-              <RefreshCw size={20} className="text-indigo-400 animate-spin" />
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Balayage GPS actif...</span>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {/* Mock Map Frame */}
-              <div className="h-28 rounded-xl bg-slate-950 border border-white/5 overflow-hidden relative flex items-center justify-center">
-                {/* Visual grid backdrop */}
-                <div className="absolute inset-0 opacity-10 flex flex-wrap gap-1 p-1">
-                  {Array.from({ length: 48 }).map((_, i) => (
-                    <div key={i} className="w-5 h-5 bg-slate-500 rounded" />
-                  ))}
-                </div>
-                
-                {/* Active scan rings */}
-                <div className="absolute w-12 h-12 rounded-full border border-indigo-500 bg-indigo-500/10 animate-ping" />
-                <div className="w-3.5 h-3.5 rounded-full bg-indigo-500 border-2 border-white shadow-lg relative z-10" />
+          <div className="overflow-hidden rounded-[28px] border border-white/10 bg-slate-950">
+            <iframe
+              title="Carte d'urgence - Fès"
+              src={`https://www.google.com/maps?q=${encodeURIComponent('2WVH+7R2, Rte Principale Fès Meknès, Fès, Morocco')}&z=16&output=embed`}
+              className="h-72 w-full border-0"
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </div>
 
-                <span className="absolute bottom-2 left-3 text-[9px] font-bold text-slate-500">
-                  Casablanca, Maroc • Static
-                </span>
-              </div>
-
-              {/* Coordinates specs */}
-              <div className="bg-slate-950/30 rounded-xl p-3 border border-white/5 text-xs">
-                <p className="font-bold text-slate-200" title={location?.address}>{location?.address}</p>
-                <div className="flex items-center gap-4 mt-2 text-[10px] text-slate-500 font-semibold">
-                  <span>Lat: <b className="text-slate-400 font-mono">{location?.lat.toFixed(5)}</b></span>
-                  <span>Lng: <b className="text-slate-400 font-mono">{location?.lng.toFixed(5)}</b></span>
-                  <span className="ml-auto">Précision: <b className="text-indigo-400">±{location?.accuracy}m</b></span>
-                </div>
-              </div>
-            </div>
-          )}
+          <div className="mt-3 rounded-2xl border border-white/10 bg-slate-950/70 p-3 text-xs text-slate-400">
+            <p className="font-semibold text-slate-200">Centre : 2WVH+7R2, Rte Principale Fès Meknès, Fès, Maroc</p>
+            <p className="mt-1">Zoom et navigation activés sur une carte réelle avec un marqueur.</p>
+          </div>
         </div>
 
         {/* EMERGENCY CONTACTS HORIZONTAL CAROUSEL */}

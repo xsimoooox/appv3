@@ -2,8 +2,33 @@
 @config "../tailwind.config.js";
 
 @layer base {
+  :root {
+    color-scheme: light;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    color: #111827;
+    background-color: #F8FAFC;
+  }
+
   body {
     -webkit-tap-highlight-color: transparent;
+    margin: 0;
+    min-height: 100vh;
+    background: #F8FAFC;
+    color: #111827;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: #111827;
+  }
+
+  p, button, input, label, span {
+    font-family: inherit;
   }
 }
 
@@ -476,6 +501,10 @@ button:disabled {
 .vox-brand--compact .vox-brand__mark {
   width: 43px;
   height: 34px;
+}
+
+.vox-brand--icon-only {
+  gap: 0;
 }
 
 .vox-dashboard {
