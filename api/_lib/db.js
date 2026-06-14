@@ -9,7 +9,14 @@ const isVercel = Boolean(process.env.VERCEL);
 
 function getBackend() {
   if (process.env.MONGODB_URI) return 'mongodb';
-  if (isVercel || process.env.USE_FIREBASE_DB === '1') return 'firebase';
+  if (
+    process.env.USE_FIREBASE_DB === '1'
+    || process.env.FIREBASE_DATABASE_URL
+    || process.env.FIREBASE_DATABASE_AUTH_TOKEN
+  ) {
+    return 'firebase';
+  }
+  if (isVercel) return 'unconfigured';
   return 'file';
 }
 
@@ -62,14 +69,20 @@ async function ensureDb() {
     await connectMongo();
   } else if (backend === 'firebase') {
     await firebaseDb.checkFirebaseHealth();
+  } else if (backend === 'unconfigured') {
+    const err = new Error(
+      'Base de données Vercel non configurée. Ajoutez MONGODB_URI dans Settings > Environment Variables.',
+    );
+    err.code = 'NO_DATABASE';
+    throw err;
   }
 }
 
 export async function findUserByPhone(phoneNumber) {
   const backend = getBackend();
+  await ensureDb();
 
   if (backend === 'mongodb') {
-    await connectMongo();
     const doc = await User.findOne({ phoneNumber });
     return toPlainUser(doc);
   }
@@ -85,9 +98,9 @@ export async function findUserByPhone(phoneNumber) {
 
 export async function findUserById(id) {
   const backend = getBackend();
+  await ensureDb();
 
   if (backend === 'mongodb') {
-    await connectMongo();
     const doc = await User.findById(id);
     return toPlainUser(doc);
   }
@@ -103,9 +116,9 @@ export async function findUserById(id) {
 
 export async function createUser(userData) {
   const backend = getBackend();
+  await ensureDb();
 
   if (backend === 'mongodb') {
-    await connectMongo();
     const doc = await User.create(userData);
     return toPlainUser(doc);
   }
@@ -127,9 +140,9 @@ export async function createUser(userData) {
 
 export async function updateUser(id, updates) {
   const backend = getBackend();
+  await ensureDb();
 
   if (backend === 'mongodb') {
-    await connectMongo();
     const doc = await User.findByIdAndUpdate(id, updates, { new: true });
     return toPlainUser(doc);
   }
@@ -150,10 +163,12 @@ export async function checkDbHealth() {
   try {
     const backend = getBackend();
     if (backend === 'mongodb') {
-      await connectMongo();
+      await ensureDb();
       await User.findOne().limit(1).lean();
     } else if (backend === 'firebase') {
       return firebaseDb.checkFirebaseHealth();
+    } else if (backend === 'unconfigured') {
+      await ensureDb();
     }
     return { ok: true, backend };
   } catch (err) {

@@ -34,6 +34,12 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error('[CHECK_PHONE]', err);
+    if (err.code === 'NO_DATABASE' || err.code === 'FIREBASE_ERROR') {
+      return res.status(503).json({
+        error: err.message,
+        code: err.code,
+      });
+    }
     return res.status(500).json({ error: 'Erreur serveur' });
   }
 }

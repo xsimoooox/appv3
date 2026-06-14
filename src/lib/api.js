@@ -22,6 +22,9 @@ export function getAuthErrorMessage(res, data) {
   if (data?.code === 'db_not_configured') {
     return 'Base de données non configurée sur le serveur (MONGODB_URI manquant sur Vercel).';
   }
+  if (data?.code === 'NO_DATABASE') {
+    return 'Base Vercel non configurée. Ajoutez MONGODB_URI dans les variables d’environnement Vercel.';
+  }
   if (res.status === 404) {
     return 'Service inscription indisponible.';
   }

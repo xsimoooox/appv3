@@ -1,5 +1,6 @@
 const DATABASE_URL =
   process.env.FIREBASE_DATABASE_URL || 'https://sign-langage-default-rtdb.firebaseio.com';
+const DATABASE_AUTH_TOKEN = process.env.FIREBASE_DATABASE_AUTH_TOKEN || '';
 
 const USERS_ROOT = 'wakwak_auth/users';
 const PHONE_INDEX = 'wakwak_auth/phone_index';
@@ -9,7 +10,11 @@ function phoneKey(phoneNumber) {
 }
 
 function pathUrl(path) {
-  return `${DATABASE_URL}/${path}.json`;
+  const url = new URL(`${DATABASE_URL}/${path}.json`);
+  if (DATABASE_AUTH_TOKEN) {
+    url.searchParams.set('auth', DATABASE_AUTH_TOKEN);
+  }
+  return url.toString();
 }
 
 async function firebaseRequest(path, { method = 'GET', body } = {}) {
@@ -20,7 +25,12 @@ async function firebaseRequest(path, { method = 'GET', body } = {}) {
 
   const res = await fetch(pathUrl(path), options);
   if (!res.ok) {
-    const err = new Error(`Firebase error ${res.status}`);
+    const detail = await res.text().catch(() => '');
+    const err = new Error(
+      res.status === 401 || res.status === 403
+        ? 'Firebase refuse l’accès. Configurez FIREBASE_DATABASE_AUTH_TOKEN sur Vercel.'
+        : `Firebase error ${res.status}${detail ? `: ${detail}` : ''}`,
+    );
     err.code = 'FIREBASE_ERROR';
     throw err;
   }
