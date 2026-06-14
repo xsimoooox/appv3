@@ -256,6 +256,9 @@ export default function Contacts() {
   const frizittaPlaybackRef = useRef({ index: 0, sequence: [], timer: null, active: false });
   const alexPlaybackRef = useRef({ index: 0, sequence: [], activeVideo: 'A', active: false });
   const lastRemoteTextRef = useRef('');
+  const lastAvatarTextRef = useRef('');
+  const avatarTranscriptTimerRef = useRef(null);
+  const pendingAvatarTextRef = useRef('');
 
   // Load contacts database — always reinitialize from DEFAULT if missing/empty
   useEffect(() => {
@@ -564,10 +567,14 @@ export default function Contacts() {
       const seq = frizittaPlaybackRef.current.sequence;
 
       if (idx >= seq.length) {
+        frizittaPlaybackRef.current.active = false;
         setCurrentLetterUrl(frizittaDb.NEUTRE || '');
         setCurrentLetter('');
         setCurrentWord('');
         setFrizittaIdxInfo({ num: 0, total: 0 });
+        const pending = pendingAvatarTextRef.current;
+        pendingAvatarTextRef.current = '';
+        if (pending) setTimeout(() => handleNewTranslationText(pending), 0);
         return;
       }
 
@@ -643,7 +650,15 @@ export default function Contacts() {
       if (url) {
         sequence.push({ url, word: words[i] });
       } else {
-        skipped.push(words[i]);
+        const letters = words[i].replace(/[^\p{L}\p{N}]/gu, '').split('');
+        let foundLetter = false;
+        letters.forEach((letter) => {
+          const letterUrl = findInAlex(letter);
+          if (!letterUrl) return;
+          foundLetter = true;
+          sequence.push({ url: letterUrl, word: letter });
+        });
+        if (!foundLetter) skipped.push(words[i]);
       }
       i++;
     }
@@ -673,8 +688,12 @@ export default function Contacts() {
       const seq = alexPlaybackRef.current.sequence;
 
       if (seqIndex >= seq.length) {
+        alexPlaybackRef.current.active = false;
         setCurrentAlexWord('');
         setAlexIdxInfo({ num: 0, total: 0 });
+        const pending = pendingAvatarTextRef.current;
+        pendingAvatarTextRef.current = '';
+        if (pending) setTimeout(() => handleNewTranslationText(pending), 0);
         return;
       }
 
@@ -712,8 +731,12 @@ export default function Contacts() {
             setActiveVideo(nextActiveId);
             playNextAlex();
           } else {
+            alexPlaybackRef.current.active = false;
             setCurrentAlexWord('');
             setAlexIdxInfo({ num: 0, total: 0 });
+            const pending = pendingAvatarTextRef.current;
+            pendingAvatarTextRef.current = '';
+            if (pending) setTimeout(() => handleNewTranslationText(pending), 0);
           }
         }
       };
@@ -721,7 +744,7 @@ export default function Contacts() {
       applyAlexVideoStyles(currentVideo);
       currentVideo.src = currentItem.url;
       currentVideo.playbackRate = 1.0;
-      currentVideo.play();
+      currentVideo.play().catch(() => {});
     };
 
     playNextAlex();
@@ -826,6 +849,9 @@ export default function Contacts() {
     setRemoteStatus('idle');
     setRealtimeConnection('idle');
     lastRemoteTextRef.current = '';
+    lastAvatarTextRef.current = '';
+    pendingAvatarTextRef.current = '';
+    clearTimeout(avatarTranscriptTimerRef.current);
 
     const codeFromUrl = new URLSearchParams(location.search).get('code');
     const storedCode = codeFromUrl || getStoredSessionCode();
@@ -864,16 +890,29 @@ export default function Contacts() {
       setInterlocuteurDit(text);
       setIsSpeaking(!transcript.isFinal);
 
-      if (transcript.isFinal && text && text !== lastRemoteTextRef.current) {
-        const previous = lastRemoteTextRef.current;
+      if (!text || text === lastRemoteTextRef.current) return;
+      lastRemoteTextRef.current = text;
+
+      const playNewSpeech = () => {
+        const previous = lastAvatarTextRef.current;
         const newText = previous && text.startsWith(previous)
           ? text.slice(previous.length).trim()
-          : text;
-        lastRemoteTextRef.current = text;
-
-        if (newText) {
-          handleNewTranslationText(newText);
+          : text.trim();
+        lastAvatarTextRef.current = text;
+        if (!newText) return;
+        const avatarBusy = frizittaPlaybackRef.current.active || alexPlaybackRef.current.active;
+        if (avatarBusy) {
+          pendingAvatarTextRef.current = `${pendingAvatarTextRef.current} ${newText}`.trim();
+          return;
         }
+        handleNewTranslationText(newText);
+      };
+
+      clearTimeout(avatarTranscriptTimerRef.current);
+      if (transcript.isFinal) {
+        playNewSpeech();
+      } else {
+        avatarTranscriptTimerRef.current = setTimeout(playNewSpeech, 700);
       }
     }, setRealtimeConnection);
 
@@ -904,8 +943,9 @@ export default function Contacts() {
       stopStatus();
       stopCallMeta();
       clearInterval(keepAlive);
+      clearTimeout(avatarTranscriptTimerRef.current);
     };
-  }, [screen, activeSessionCode, avatarMode]);
+  }, [screen, activeSessionCode, avatarMode, frizittaDb, alexDb]);
 
   const processIncomingVoiceText = useCallback((text) => {
     const cleaned = (text || '').trim();
