@@ -269,15 +269,18 @@ export async function touchRealtimeCall(code) {
 
 export async function sendTranscript({ code, text, isFinal, lang }) {
   const timestamp = Date.now();
-  await updateFirebaseData(`sessions/${code}`, {
-    transcript: {
-      text,
-      isFinal,
-      timestamp,
-      lang,
-    },
-    status: isFinal ? 'idle' : 'speaking',
-  });
+  const transcript = {
+    text,
+    isFinal,
+    timestamp,
+    lang,
+  };
+
+  await Promise.all([
+    setFirebaseData(`sessions/${code}/transcript`, transcript),
+    setFirebaseData(`sessions/${code}/status`, isFinal ? 'idle' : 'speaking'),
+    setFirebaseData(`sessions/${code}/voiceEvents/${timestamp}`, transcript),
+  ]);
 }
 
 export async function endRealtimeCall(code) {

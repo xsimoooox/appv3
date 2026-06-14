@@ -865,8 +865,16 @@ function CallScreen({ contact }) {
       setSpeechStatus('écoute active');
     };
 
-    recognition.onerror = () => {
-      setSpeechStatus('reconnexion');
+    recognition.onerror = (event) => {
+      const error = event?.error || 'inconnue';
+      if (error === 'no-speech') {
+        setSpeechStatus('écoute active');
+        return;
+      }
+      if (error === 'aborted') return;
+      micOnRef.current = false;
+      setMicOn(false);
+      setSpeechStatus(`micro ${error}`);
     };
 
     recognition.onend = () => {
@@ -879,6 +887,8 @@ function CallScreen({ contact }) {
           try {
             recognition.start();
           } catch {
+            micOnRef.current = false;
+            setMicOn(false);
             setSpeechStatus('en attente micro');
           }
         }, 700);
@@ -928,10 +938,26 @@ function CallScreen({ contact }) {
     try {
       recognition.start();
     } catch {
+      micOnRef.current = false;
+      setMicOn(false);
       setSpeechStatus('en attente micro');
     }
 
+    const startAfterInteraction = () => {
+      if (micOnRef.current) return;
+      try {
+        recognition.start();
+        micOnRef.current = true;
+        setMicOn(true);
+        setSpeechStatus('écoute active');
+      } catch {
+        setSpeechStatus('autorisez le microphone');
+      }
+    };
+    window.addEventListener('pointerdown', startAfterInteraction, { once: true });
+
     return () => {
+      window.removeEventListener('pointerdown', startAfterInteraction);
       recognition.onend = null;
       recognition.stop();
     };

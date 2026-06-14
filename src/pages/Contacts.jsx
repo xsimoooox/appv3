@@ -259,6 +259,7 @@ export default function Contacts() {
   const lastAvatarTextRef = useRef('');
   const avatarTranscriptTimerRef = useRef(null);
   const pendingAvatarTextRef = useRef('');
+  const lastVoiceEventRef = useRef(0);
 
   // Load contacts database — always reinitialize from DEFAULT if missing/empty
   useEffect(() => {
@@ -851,6 +852,7 @@ export default function Contacts() {
     lastRemoteTextRef.current = '';
     lastAvatarTextRef.current = '';
     pendingAvatarTextRef.current = '';
+    lastVoiceEventRef.current = 0;
     clearTimeout(avatarTranscriptTimerRef.current);
 
     const codeFromUrl = new URLSearchParams(location.search).get('code');
@@ -916,6 +918,28 @@ export default function Contacts() {
       }
     }, setRealtimeConnection);
 
+    const stopVoiceEvents = listenFirebaseValue(`sessions/${activeSessionCode}/voiceEvents`, (events) => {
+      if (!events || typeof events !== 'object') return;
+      const latest = Object.values(events)
+        .filter((event) => event?.text && Number(event.timestamp) > lastVoiceEventRef.current)
+        .sort((a, b) => Number(b.timestamp) - Number(a.timestamp))[0];
+      if (!latest) return;
+      lastVoiceEventRef.current = Number(latest.timestamp);
+      const text = String(latest.text).trim();
+      const previous = lastAvatarTextRef.current;
+      const newText = previous && text.startsWith(previous)
+        ? text.slice(previous.length).trim()
+        : text;
+      lastAvatarTextRef.current = text;
+      if (!newText) return;
+      const avatarBusy = frizittaPlaybackRef.current.active || alexPlaybackRef.current.active;
+      if (avatarBusy) {
+        pendingAvatarTextRef.current = `${pendingAvatarTextRef.current} ${newText}`.trim();
+      } else {
+        handleNewTranslationText(newText);
+      }
+    }, setRealtimeConnection);
+
     const stopStatus = listenFirebaseValue(`sessions/${activeSessionCode}/status`, (status) => {
       if (!status) return;
       setRemoteStatus(status);
@@ -940,6 +964,7 @@ export default function Contacts() {
 
     return () => {
       stopTranscript();
+      stopVoiceEvents();
       stopStatus();
       stopCallMeta();
       clearInterval(keepAlive);
