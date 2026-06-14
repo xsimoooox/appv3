@@ -26,6 +26,11 @@ export async function startFirebaseCall({
   routePrefix,
   targetPhone = '',
 }) {
+  const normalizedTargetPhone = normalizePhoneNumber(targetPhone);
+  if (!normalizedTargetPhone) {
+    throw new Error("Le contact n'a pas de numéro valide");
+  }
+
   const code = generateSessionCode();
   const uid = getClientUid(role === 'deaf' ? 'deaf' : 'hearing');
   const user = getWakwakUser();
@@ -40,7 +45,7 @@ export async function startFirebaseCall({
     callerPhone,
     callerRole: role === 'deaf' ? 'deaf' : 'hearing',
     targetContactId: contactId,
-    targetPhone: normalizePhoneNumber(targetPhone),
+    targetPhone: normalizedTargetPhone,
   });
 
   await touchRealtimeCall(code).catch(() => {});
@@ -71,9 +76,10 @@ export async function startContactCall({
 }) {
   if (isSocketCallAvailable() && socketCallUser) {
     try {
-      await socketCallUser(targetPhone, contactName);
-      return { mode: 'socket' };
-    } catch {
+      const started = await socketCallUser(targetPhone, contactName);
+      if (started) return { mode: 'socket' };
+    } catch (err) {
+      console.warn('[CALL] Socket indisponible, passage à Firebase:', err);
       /* fallback firebase */
     }
   }

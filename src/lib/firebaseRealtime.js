@@ -164,24 +164,6 @@ export async function createRealtimeCall({
   const expiresAt = timestamp + CALL_INVITE_TTL_MS;
   storeSessionCode(code);
 
-  await setFirebaseData(`sessions/${code}`, {
-    transcript: {
-      text: '',
-      isFinal: true,
-      timestamp,
-      lang,
-    },
-    status: 'active',
-    participants: {
-      A: callerUid,
-      B: null,
-    },
-    calleeJoined: false,
-    createdAt: timestamp,
-    lastActivity: timestamp,
-    expiresAt,
-  });
-
   const callPayload = {
     caller: callerUid,
     callerName,
@@ -197,16 +179,36 @@ export async function createRealtimeCall({
     calleeJoined: false,
   };
 
-  await setFirebaseData(`calls/${code}`, callPayload);
-
+  const phoneKey = targetPhone ? inviteKeyFromPhone(targetPhone) : '';
+  const updates = {
+    [`sessions/${code}`]: {
+      transcript: {
+        text: '',
+        isFinal: true,
+        timestamp,
+        lang,
+      },
+      status: 'active',
+      participants: {
+        A: callerUid,
+        B: null,
+      },
+      calleeJoined: false,
+      createdAt: timestamp,
+      lastActivity: timestamp,
+      expiresAt,
+    },
+    [`calls/${code}`]: callPayload,
+  };
   if (targetPhone) {
-    const phoneKey = inviteKeyFromPhone(targetPhone);
-    await setFirebaseData(`invites/${phoneKey}/${code}`, {
+    updates[`invites/${phoneKey}/${code}`] = {
       ...callPayload,
       code,
       callerUid,
-    });
+    };
   }
+
+  await updateFirebaseData('', updates);
 }
 
 export async function joinRealtimeCall({ code, uid, calleeName = '', calleePhone = '' }) {
@@ -291,7 +293,7 @@ export async function registerNotificationPreference(uid) {
   return permission;
 }
 
-export function showLocalIncomingNotification({ code, callerName }) {
+export function showLocalIncomingNotification({ code }) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   const notification = new Notification('📞 Appel entrant', {
     body: `Code : ${code} — Appuyez sur Rejoindre`,
@@ -394,4 +396,3 @@ export function listenRencontreSession(sessionId, { onMeta, onVoice, onGlove, on
 
   return () => stops.forEach((stop) => stop());
 }
-

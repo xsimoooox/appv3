@@ -5,6 +5,7 @@ import { getWakwakUser } from '../lib/wakwakUser';
 import { getSocket, initSocket, callUserById } from '../lib/socket';
 
 const CALL_TIMEOUT_MS = 30000;
+const CALL_START_TIMEOUT_MS = 8000;
 
 const RTC_CONFIG = {
   iceServers: [
@@ -316,12 +317,37 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
         const offer = await peerConnectionRef.current.createOffer();
         await peerConnectionRef.current.setLocalDescription(offer);
 
-        callUserById({
-          callerId: resolvedUserId,
-          targetUserId,
-          offer,
-          callType: 'voice',
-          callerName: targetName,
+        await new Promise((resolve, reject) => {
+          const cleanup = () => {
+            clearTimeout(timer);
+            socket.off('call_sent', handleSent);
+            socket.off('call_failed', handleFailed);
+          };
+          const handleSent = (data) => {
+            if (String(data?.targetUserId || '') !== String(targetUserId)) return;
+            cleanup();
+            resolve();
+          };
+          const handleFailed = (data) => {
+            if (data?.targetUserId && String(data.targetUserId) !== String(targetUserId)) return;
+            cleanup();
+            reject(new Error(data?.message || "L'utilisateur est injoignable"));
+          };
+          const timer = setTimeout(() => {
+            cleanup();
+            reject(new Error("Le serveur d'appel ne répond pas"));
+          }, CALL_START_TIMEOUT_MS);
+
+          socket.on('call_sent', handleSent);
+          socket.on('call_failed', handleFailed);
+          callUserById({
+            callerId: resolvedUserId,
+            targetUserId,
+            targetPhone,
+            offer,
+            callType: 'voice',
+            callerName: targetName,
+          });
         });
 
         setOutgoingCall({
@@ -537,6 +563,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
     myPhoneNumber,
     myRole,
     cleanupCall,
+    cleanupPeerConnection,
     clearCallTimeout,
     onToast,
     playRingtone,
@@ -660,7 +687,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
         onToast?.(`${target.name} n'est pas connecté — tentative d'appel…`, 'info');
       }
 
-      await initiateWebRtcCall(
+      return initiateWebRtcCall(
         target.id,
         target.phoneNumber || targetPhone,
         callerName || target.name,

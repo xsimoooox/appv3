@@ -97,7 +97,14 @@ export function disconnectSocket() {
   registeredUserId = null;
 }
 
-export function callUserById({ callerId, targetUserId, offer, callType = 'voice', callerName }) {
+export function callUserById({
+  callerId,
+  targetUserId,
+  targetPhone,
+  offer,
+  callType = 'voice',
+  callerName,
+}) {
   if (!socket?.connected) {
     console.error('[SOCKET] callUserById: socket non connecté');
     return false;
@@ -109,6 +116,7 @@ export function callUserById({ callerId, targetUserId, offer, callType = 'voice'
   socket.emit('call_user', {
     callerId: String(callerId),
     targetUserId: String(targetUserId),
+    targetPhone,
     callerName,
     offer: offer || null,
     callType,
