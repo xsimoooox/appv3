@@ -914,7 +914,7 @@ export default function Contacts() {
       if (transcript.isFinal) {
         playNewSpeech();
       } else {
-        avatarTranscriptTimerRef.current = setTimeout(playNewSpeech, 700);
+        avatarTranscriptTimerRef.current = setTimeout(playNewSpeech, 120);
       }
     }, setRealtimeConnection);
 

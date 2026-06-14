@@ -709,6 +709,10 @@ function CallScreen({ contact }) {
   const canvasRef = useRef(null);
   const recognitionRef = useRef(null);
   const finalTranscriptRef = useRef('');
+  const liveTranscriptRef = useRef('');
+  const lastPublishedTranscriptRef = useRef('');
+  const pendingTranscriptRef = useRef(null);
+  const transcriptPublishInFlightRef = useRef(false);
   const mountedRef = useRef(false);
   const micOnRef = useRef(true);
   const soundOnRef = useRef(true);
@@ -856,8 +860,40 @@ function CallScreen({ contact }) {
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
     recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
     recognition.lang = activeCall?.withPhone ? 'en-US' : speechLang;
     recognitionRef.current = recognition;
+
+    const publishPendingTranscript = async () => {
+      if (transcriptPublishInFlightRef.current || !pendingTranscriptRef.current) return;
+      const pending = pendingTranscriptRef.current;
+      pendingTranscriptRef.current = null;
+      if (!pending.isFinal && pending.text === lastPublishedTranscriptRef.current) return;
+
+      transcriptPublishInFlightRef.current = true;
+      lastPublishedTranscriptRef.current = pending.text;
+      try {
+        await sendTranscript({
+          code: sessionCode,
+          text: pending.text,
+          isFinal: pending.isFinal,
+          lang: speechLang,
+        });
+      } catch {
+        setSpeechStatus('firebase indisponible');
+      } finally {
+        transcriptPublishInFlightRef.current = false;
+        if (pendingTranscriptRef.current) publishPendingTranscript();
+      }
+    };
+
+    const queueTranscript = (text, isFinal) => {
+      const cleaned = text.trim();
+      if (!cleaned) return;
+      liveTranscriptRef.current = cleaned;
+      pendingTranscriptRef.current = { text: cleaned, isFinal };
+      publishPendingTranscript();
+    };
 
     recognition.onstart = () => {
       micOnRef.current = true;
@@ -913,25 +949,16 @@ function CallScreen({ contact }) {
       if (finalChunk.trim()) {
         const nextFinal = `${finalTranscriptRef.current} ${finalChunk}`.trim();
         finalTranscriptRef.current = nextFinal;
+        liveTranscriptRef.current = nextFinal;
         setFinalTranscript(nextFinal);
         setInterimTranscript('');
         if (activeCall?.withPhone && canSpeakTurn) {
           emitVoiceText(finalChunk.trim());
         }
-        sendTranscript({
-          code: sessionCode,
-          text: nextFinal,
-          isFinal: true,
-          lang: speechLang,
-        }).catch(() => setSpeechStatus('firebase indisponible'));
+        queueTranscript(nextFinal, true);
       } else if (interim.trim()) {
         setInterimTranscript(interim);
-        sendTranscript({
-          code: sessionCode,
-          text: `${finalTranscriptRef.current} ${interim}`.trim(),
-          isFinal: false,
-          lang: speechLang,
-        }).catch(() => setSpeechStatus('firebase indisponible'));
+        queueTranscript(`${finalTranscriptRef.current} ${interim}`, false);
       }
     };
 

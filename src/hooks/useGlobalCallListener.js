@@ -22,7 +22,7 @@ import { getWakwakUser } from '../lib/wakwakUser';
 import { normalizePhoneNumber } from '../lib/phoneUtils';
 
 const DISMISSED_KEY = 'wakwak_dismissed_calls';
-const POLL_INTERVAL_MS = 8000; // Fallback poll every 8s in case EventSource misses events
+const POLL_INTERVAL_MS = 1000;
 
 function loadDismissed() {
   try {
@@ -174,11 +174,21 @@ export function useGlobalCallListener({ onAcceptCall, onRejectCall } = {}) {
       }
     };
 
+    const pollWhenVisible = () => {
+      if (document.visibilityState === 'visible') poll();
+    };
     const id = setInterval(poll, POLL_INTERVAL_MS);
-    // Run immediately once
     poll();
+    window.addEventListener('focus', poll);
+    window.addEventListener('online', poll);
+    document.addEventListener('visibilitychange', pollWhenVisible);
 
-    return () => clearInterval(id);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('focus', poll);
+      window.removeEventListener('online', poll);
+      document.removeEventListener('visibilitychange', pollWhenVisible);
+    };
   }, [myPhone, processInvites]);
 
   const acceptIncomingCall = useCallback(async () => {

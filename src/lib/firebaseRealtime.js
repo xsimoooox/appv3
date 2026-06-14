@@ -105,6 +105,8 @@ export async function getFirebaseData(path) {
 export function listenFirebaseValue(path, onValue, onConnection) {
   const source = new EventSource(pathUrl(path));
   let currentValue = null;
+  let closed = false;
+  let refreshTimer = null;
 
   const applyNestedValue = (target, eventPath, value) => {
     const parts = eventPath.split('/').filter(Boolean);
@@ -137,12 +139,40 @@ export function listenFirebaseValue(path, onValue, onConnection) {
     }
   };
 
+  const refreshValue = async () => {
+    try {
+      const value = await getFirebaseData(path);
+      if (closed) return;
+      currentValue = value;
+      onValue(value);
+      onConnection?.('connected');
+    } catch {
+      if (!closed) onConnection?.('reconnecting');
+    }
+  };
+
+  const scheduleRefresh = (delay = 0) => {
+    clearTimeout(refreshTimer);
+    refreshTimer = setTimeout(refreshValue, delay);
+  };
+
   source.addEventListener('put', handleEvent);
   source.addEventListener('patch', handleEvent);
-  source.onerror = () => onConnection?.('reconnecting');
-  source.onopen = () => onConnection?.('connected');
+  source.onerror = () => {
+    onConnection?.('reconnecting');
+    scheduleRefresh(300);
+  };
+  source.onopen = () => {
+    onConnection?.('connected');
+    scheduleRefresh();
+  };
+  scheduleRefresh();
 
-  return () => source.close();
+  return () => {
+    closed = true;
+    clearTimeout(refreshTimer);
+    source.close();
+  };
 }
 
 const CALL_INVITE_TTL_MS = 5 * 60 * 1000;
@@ -276,11 +306,11 @@ export async function sendTranscript({ code, text, isFinal, lang }) {
     lang,
   };
 
-  await Promise.all([
-    setFirebaseData(`sessions/${code}/transcript`, transcript),
-    setFirebaseData(`sessions/${code}/status`, isFinal ? 'idle' : 'speaking'),
-    setFirebaseData(`sessions/${code}/voiceEvents/${timestamp}`, transcript),
-  ]);
+  await updateFirebaseData('', {
+    [`sessions/${code}/transcript`]: transcript,
+    [`sessions/${code}/status`]: isFinal ? 'idle' : 'speaking',
+    [`sessions/${code}/voiceEvents/${timestamp}`]: transcript,
+  });
 }
 
 export async function endRealtimeCall(code) {
