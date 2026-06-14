@@ -326,14 +326,13 @@ export async function sendTranscript({ code, text, isFinal, lang, targetPhone = 
   };
 
   const phonePath = liveTranscriptPathForPhone(targetPhone);
-  if (phonePath) {
-    await setFirebaseData(phonePath, transcript);
-  } else {
-    await setFirebaseData(`sessions/${code}/liveTranscript`, transcript);
-  }
+  const sessionLiveWrite = setFirebaseData(`sessions/${code}/liveTranscript`, transcript);
+  const phoneLiveWrite = phonePath ? setFirebaseData(phonePath, transcript) : Promise.resolve();
+  await Promise.any([sessionLiveWrite, phoneLiveWrite]);
 
   Promise.all([
-    setFirebaseData(`sessions/${code}/liveTranscript`, transcript),
+    sessionLiveWrite,
+    phoneLiveWrite,
     setFirebaseData(`sessions/${code}/transcript`, transcript),
     setFirebaseData(`sessions/${code}/status`, isFinal ? 'idle' : 'speaking'),
     setFirebaseData(`sessions/${code}/voiceEvents/${timestamp}`, transcript),

@@ -810,7 +810,14 @@ export default function Contacts() {
   const joinSessionByCode = async (rawCode) => {
     const code = rawCode.trim().toUpperCase();
     if (!code) return;
+
+    // Start listening immediately. Joining Firebase metadata must never block
+    // the live transcript displayed during the call.
+    storeSessionCode(code);
+    setActiveSessionCode(code);
+    setSessionCodeInput(code);
     setRealtimeConnection('reconnecting');
+
     try {
       const user = getWakwakUser();
       const uid = getClientUid('deaf');
@@ -824,13 +831,11 @@ export default function Contacts() {
         await touchRealtimeCall(code);
       }
 
-      storeSessionCode(code);
-      setActiveSessionCode(code);
-      setSessionCodeInput(code);
       setRealtimeConnection('connected');
     } catch {
-      setRealtimeConnection('lost');
-      showToast('Connexion Firebase impossible');
+      // Keep the session listener active: EventSource/polling can still receive
+      // the transcript while the join metadata retries on the next effect.
+      setRealtimeConnection('reconnecting');
     }
   };
 

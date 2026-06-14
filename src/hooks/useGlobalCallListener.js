@@ -202,17 +202,16 @@ export function useGlobalCallListener({ onAcceptCall, onRejectCall } = {}) {
     const calleeName = getWakwakUser()?.name || '';
     storeSessionCode(call.code);
 
-    try {
-      await joinRealtimeCall({
+    // Join metadata runs in the background. Navigation/listeners must start
+    // immediately so live transcription is not delayed by Firebase writes.
+    joinRealtimeCall({
         code: call.code,
         uid,
         calleeName,
         calleePhone: myPhone,
-      });
-      await onAcceptCall?.(call.code);
-    } catch {
-      /* already joined */
-    }
+      })
+      .catch(() => {});
+    Promise.resolve(onAcceptCall?.(call.code)).catch(() => {});
 
     dismissCode(call.code);
     dismissedRef.current.add(call.code);
