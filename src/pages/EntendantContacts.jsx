@@ -953,12 +953,16 @@ function CallScreen({ contact }) {
         setFinalTranscript(nextFinal);
         setInterimTranscript('');
         if (activeCall?.withPhone && canSpeakTurn) {
-          emitVoiceText(finalChunk.trim());
+          emitVoiceText(nextFinal);
         }
         queueTranscript(nextFinal, true);
       } else if (interim.trim()) {
+        const liveText = `${finalTranscriptRef.current} ${interim}`.trim();
         setInterimTranscript(interim);
-        queueTranscript(`${finalTranscriptRef.current} ${interim}`, false);
+        if (activeCall?.withPhone && canSpeakTurn) {
+          emitVoiceText(liveText);
+        }
+        queueTranscript(liveText, false);
       }
     };
 
