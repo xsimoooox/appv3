@@ -631,27 +631,27 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
     async (targetPhone, callerName) => {
       if (!targetPhone) {
         console.error('[CALL] targetPhone is undefined');
-        return false;
+        return;
       }
       if (!myPhoneNumber) {
         console.error('[CALL] myPhone is undefined');
-        return false;
+        return;
       }
       if (!getSocket()?.connected) {
         onToast?.('Connexion serveur en cours…', 'error');
-        return false;
+        return;
       }
 
       if (!resolvedUserId) {
         onToast?.('Compte non enregistré — reconnectez-vous', 'error');
-        return false;
+        return;
       }
 
       const { res, data } = await findUserByPhone(targetPhone);
 
       if (!res.ok || !data?.found) {
         onToast?.('Utilisateur introuvable. Il doit avoir un compte.', 'error');
-        return false;
+        return;
       }
 
       const target = data.user;
@@ -660,7 +660,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
         onToast?.(`${target.name} n'est pas connecté — tentative d'appel…`, 'info');
       }
 
-      return await initiateWebRtcCall(
+      await initiateWebRtcCall(
         target.id,
         target.phoneNumber || targetPhone,
         callerName || target.name,
