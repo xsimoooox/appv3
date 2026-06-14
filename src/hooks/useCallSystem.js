@@ -657,6 +657,9 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
       const user = getVoxManusUser();
       const socket = getSocket() || (user?.id ? initSocket(user) : null);
       if (!socket) return;
+      if (!socket.connected) {
+        socket.connect();
+      }
 
       const waitUntilReady = () => new Promise((resolve, reject) => {
         if (socket.connected) {

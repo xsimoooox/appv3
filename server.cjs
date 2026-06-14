@@ -50,10 +50,14 @@ function callRoomName(phoneA, phoneB) {
   return key ? `call:${key}` : '';
 }
 
-function joinCallRoom(phoneA, phoneB) {
+async function joinCallRoom(phoneA, phoneB) {
   const room = callRoomName(phoneA, phoneB);
   if (!room) return '';
-  [resolveSocketByPhone(phoneA), resolveSocketByPhone(phoneB)]
+  const socketIds = await Promise.all([
+    resolveSocketIdByPhone(phoneA),
+    resolveSocketIdByPhone(phoneB),
+  ]);
+  socketIds
     .filter(Boolean)
     .forEach((socketId) => io.sockets.sockets.get(socketId)?.join(room));
   return room;
@@ -93,7 +97,10 @@ function resolveSocketByPhone(phone) {
     const sid = resolveSocketByUserId(uid);
     if (sid) return sid;
   }
-  return onlineUsers.get(clean) || null;
+  const socketId = onlineUsers.get(clean);
+  if (socketId && io.sockets.sockets.get(socketId)) return socketId;
+  if (socketId) onlineUsers.delete(clean);
+  return null;
 }
 
 async function resolveUserIdFromPhone(phone) {
@@ -136,6 +143,71 @@ async function resolveSocketReliable({ userId, phone } = {}) {
   } catch (error) {
     console.error('[RESOLVE_SOCKET]', error.message);
     return null;
+  }
+}
+
+async function resolveSocketIdByPhone(phone) {
+  if (!phone) return null;
+  return resolveSocketReliable({ phone: cleanPhone(phone) });
+}
+
+async function autoJoinActiveCallRooms(socket) {
+  const phone = cleanPhone(socket.data.phoneNumber);
+  if (!phone) return;
+
+  const activePairs = new Map();
+  pendingSocketCalls.forEach((call) => {
+    const caller = cleanPhone(call?.callerPhone);
+    const target = cleanPhone(call?.targetPhone);
+    if (caller && target && (caller === phone || target === phone)) {
+      activePairs.set(callPairKey(caller, target), [caller, target]);
+    }
+  });
+  callTurns.forEach((_holder, key) => {
+    const [phoneA, phoneB] = key.split('|');
+    if (phoneA && phoneB && (phoneA === phone || phoneB === phone)) {
+      activePairs.set(key, [phoneA, phoneB]);
+    }
+  });
+
+  await Promise.all(
+    [...activePairs.values()].map(async ([phoneA, phoneB]) => {
+      const room = callRoomName(phoneA, phoneB);
+      if (room) await socket.join(room);
+    }),
+  );
+}
+
+async function sendIncomingCallPush({ callerPhone, targetPhone, callerName }) {
+  const cleanCaller = cleanPhone(callerPhone);
+  const cleanTarget = cleanPhone(targetPhone);
+  const subscription = pushSubscriptions.get(cleanTarget);
+  if (!cleanCaller || !cleanTarget || !subscription || !vapidPublic || !vapidPrivate) {
+    return false;
+  }
+
+  const apiBase =
+    process.env.VOXMANUS_API_URL || `http://localhost:${process.env.PORT || 3001}`;
+  const payload = JSON.stringify({
+    type: 'incoming_call',
+    callerPhone: cleanCaller,
+    callerName: callerName || cleanCaller,
+    targetPhone: cleanTarget,
+    timestamp: Date.now(),
+    url: `/?action=accept_call&from=${encodeURIComponent(cleanCaller)}`,
+    apiBase,
+  });
+
+  try {
+    await webpush.sendNotification(subscription, payload);
+    console.log(`[CALL] Push sent to offline user: ${cleanTarget}`);
+    return true;
+  } catch (error) {
+    console.error('[CALL] Push error:', error);
+    if (error.statusCode === 410) {
+      pushSubscriptions.delete(cleanTarget);
+    }
+    return false;
   }
 }
 
@@ -280,6 +352,8 @@ io.on('connection', (socket) => {
       `[SOCKET] Enregistré: userId=${uid}, phone=${socket.data.phoneNumber || 'n/a'}, socketId=${socket.id}, total=${onlineUsers.size}`,
     );
 
+    await autoJoinActiveCallRooms(socket);
+
     socket.emit('registered', { userId: uid, socketId: socket.id });
     socket.emit('register_confirmed', {
       phoneNumber: socket.data.phoneNumber,
@@ -329,6 +403,16 @@ io.on('connection', (socket) => {
       });
 
       if (!targetSocketId) {
+        const pushed = await sendIncomingCallPush({
+          callerPhone: socket.data.phoneNumber,
+          targetPhone: data.targetPhone,
+          callerName: data.callerName,
+        });
+        if (pushed) {
+          socket.emit('call_sent', { targetUserId: targetStr, timestamp: Date.now() });
+          return;
+        }
+
         console.log(`[CALL] Target offline: ${targetStr}`);
         socket.emit('call_failed', {
           reason: 'user_offline',
@@ -367,18 +451,21 @@ io.on('connection', (socket) => {
         }
       }
 
+      const targetPhone = cleanPhone(data.targetPhone || liveTargetSocket.data.phoneNumber);
+      if (callerPhone && targetPhone) {
+        await joinCallRoom(callerPhone, targetPhone);
+      }
+
       io.to(targetSocketId).emit('incoming_call', {
         callerId: callerStr,
         callerName,
         callerPhone,
+        targetPhone,
         targetUserId: targetStr,
         offer: data.offer || null,
         callType: data.callType || 'voice',
         timestamp: Date.now(),
       });
-      if (callerPhone && data.targetPhone) {
-        joinCallRoom(callerPhone, data.targetPhone);
-      }
 
       console.log(`[CALL] incoming_call envoyé à socket ${targetSocketId}`);
       socket.emit('call_sent', { targetUserId: targetStr, timestamp: Date.now() });
@@ -411,6 +498,7 @@ io.on('connection', (socket) => {
       const callerIdResolved = (await resolveUserIdFromPhone(cleanCaller)) || cleanCaller;
       const targetIdResolved = (await resolveUserIdFromPhone(cleanTarget)) || cleanTarget;
 
+      await joinCallRoom(cleanCaller, cleanTarget);
       io.to(targetSocketId).emit('incoming_call', {
         callerPhone: cleanCaller,
         callerName: callerName || cleanCaller,
@@ -419,34 +507,17 @@ io.on('connection', (socket) => {
         targetUserId: targetIdResolved,
         timestamp: Date.now(),
       });
-      joinCallRoom(cleanCaller, cleanTarget);
       console.log(`[CALL] incoming_call sent to ${cleanTarget}`);
       return;
     }
 
-    const subscription = pushSubscriptions.get(cleanTarget);
-    if (subscription && vapidPublic && vapidPrivate) {
-      const apiBase =
-        process.env.VOXMANUS_API_URL || `http://localhost:${process.env.PORT || 3001}`;
-      const payload = JSON.stringify({
-        type: 'incoming_call',
+    if (
+      await sendIncomingCallPush({
         callerPhone: cleanCaller,
-        callerName: callerName || cleanCaller,
         targetPhone: cleanTarget,
-        timestamp: Date.now(),
-        url: `/?action=accept_call&from=${encodeURIComponent(cleanCaller)}`,
-        apiBase,
-      });
-      try {
-        await webpush.sendNotification(subscription, payload);
-        console.log(`[CALL] Push sent to offline user: ${cleanTarget}`);
-      } catch (err) {
-        console.error('[CALL] Push error:', err);
-        if (err.statusCode === 410) {
-          pushSubscriptions.delete(cleanTarget);
-        }
-        socket.emit('call_failed', { reason: 'user_unreachable', targetPhone: cleanTarget });
-      }
+        callerName,
+      })
+    ) {
       return;
     }
 
@@ -455,7 +526,10 @@ io.on('connection', (socket) => {
 
   socket.on('answer_call', async ({ callerId, answer, callerPhone, targetPhone }) => {
     const callerUid = callerId ? String(callerId) : await resolveUserIdFromPhone(callerPhone);
-    const callerSocketId = resolveSocketByUserId(callerUid) || resolveSocketByPhone(callerPhone);
+    const callerSocketId = await resolveSocketReliable({
+      userId: callerUid,
+      phone: callerPhone,
+    });
 
     if (callerSocketId) {
       io.to(callerSocketId).emit('call_answered', {
@@ -469,13 +543,15 @@ io.on('connection', (socket) => {
       const target = cleanPhone(targetPhone || socket.data.phoneNumber);
       const caller = cleanPhone(callerPhone);
       const key = callPairKey(caller, target);
-      joinCallRoom(caller, target);
+      await joinCallRoom(caller, target);
       callTurns.set(key, caller);
       emitTurnChange(caller, target, caller);
-      io.to(callerSocketId).emit('call_accepted', {
-        by: target,
-        timestamp: Date.now(),
-      });
+      if (callerSocketId) {
+        io.to(callerSocketId).emit('call_accepted', {
+          by: target,
+          timestamp: Date.now(),
+        });
+      }
       socket.emit('call_accepted', {
         by: caller,
         timestamp: Date.now(),
@@ -488,11 +564,11 @@ io.on('connection', (socket) => {
 
   socket.on('accept_call', async ({ callerPhone, targetPhone }) => {
     console.log(`[ACCEPT] ${targetPhone} accepts call from ${callerPhone}`);
-    const callerSocketId = await resolveSocketReliable({ phone: callerPhone });
+    const callerSocketId = await resolveSocketIdByPhone(callerPhone);
     const cleanCaller = cleanPhone(callerPhone);
     const cleanTarget = cleanPhone(targetPhone);
     const key = callPairKey(cleanCaller, cleanTarget);
-    joinCallRoom(cleanCaller, cleanTarget);
+    await joinCallRoom(cleanCaller, cleanTarget);
     const pending = pendingSocketCalls.get(callPairKey(cleanCaller, cleanTarget));
     if (pending?.offer) {
       socket.emit('push_call_offer', pending);
@@ -513,14 +589,11 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('ice_candidate', ({ targetUserId, candidate, targetPhone }) => {
-    let targetSocketId = null;
-    if (targetUserId) {
-      targetSocketId = resolveSocketByUserId(targetUserId);
-    }
-    if (!targetSocketId && targetPhone) {
-      targetSocketId = resolveSocketByPhone(targetPhone);
-    }
+  socket.on('ice_candidate', async ({ targetUserId, candidate, targetPhone }) => {
+    const targetSocketId = await resolveSocketReliable({
+      userId: targetUserId,
+      phone: targetPhone,
+    });
     if (targetSocketId) {
       io.to(targetSocketId).emit('ice_candidate', {
         candidate,
@@ -539,8 +612,9 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('voice_text', ({ callerPhone, targetPhone, text, isFinal = true }) => {
-    const room = joinCallRoom(callerPhone, targetPhone);
+  socket.on('voice_text', async ({ callerPhone, targetPhone, text, isFinal = true }) => {
+    const room = await joinCallRoom(callerPhone, targetPhone);
+    const targetSocketId = await resolveSocketIdByPhone(targetPhone);
     const payload = {
       from: callerPhone,
       text,
@@ -549,10 +623,9 @@ io.on('connection', (socket) => {
     };
     if (room) {
       socket.to(room).emit('receive_voice_text', payload);
-      return;
     }
-    const targetSocketId = resolveSocketByPhone(targetPhone);
-    if (targetSocketId) {
+    const targetSocket = targetSocketId ? io.sockets.sockets.get(targetSocketId) : null;
+    if (targetSocket && (!room || !targetSocket.rooms.has(room))) {
       io.to(targetSocketId).emit('receive_voice_text', payload);
     }
   });
