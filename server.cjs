@@ -113,6 +113,32 @@ async function resolveUserIdFromPhone(phone) {
   return null;
 }
 
+async function resolveSocketReliable({ userId, phone } = {}) {
+  const direct = resolveSocketByUserId(userId) || resolveSocketByPhone(phone);
+  if (direct) return direct;
+
+  try {
+    let user = null;
+    if (userId && userRepo.isValidObjectId(String(userId))) {
+      user = await userRepo.findById(String(userId));
+    }
+    if (!user && phone) {
+      user = await userRepo.findByPhone(cleanPhone(phone));
+    }
+    const socketId = user?.currentSocketId;
+    if (!socketId || !io.sockets.sockets.get(socketId)) return null;
+
+    const uid = String(user._id?.toString?.() || user._id || userId || '');
+    const clean = cleanPhone(user.phoneNumber || phone);
+    if (uid) onlineUsers.set(uid, socketId);
+    if (clean && uid) phoneToUserId.set(clean, uid);
+    return socketId;
+  } catch (error) {
+    console.error('[RESOLVE_SOCKET]', error.message);
+    return null;
+  }
+}
+
 async function broadcastOnlineStatus(userId, isOnline) {
   try {
     const user = await userRepo.findByIdPopulateContacts(userId);
@@ -297,29 +323,10 @@ io.on('connection', (socket) => {
         return;
       }
 
-      let targetSocketId = resolveSocketByUserId(targetStr);
-
-      if (!targetSocketId && userRepo.isValidObjectId(targetStr)) {
-        try {
-          const targetUser = await userRepo.findById(targetStr);
-          if (targetUser?.currentSocketId) {
-            const liveSocket = io.sockets.sockets.get(targetUser.currentSocketId);
-            if (liveSocket) {
-              targetSocketId = targetUser.currentSocketId;
-              onlineUsers.set(targetStr, targetSocketId);
-            }
-          }
-        } catch (e) {
-          /* ignore */
-        }
-      }
-
-      if (!targetSocketId) {
-        const targetPhone = data.targetPhone || null;
-        if (targetPhone) {
-          targetSocketId = resolveSocketByPhone(targetPhone);
-        }
-      }
+      const targetSocketId = await resolveSocketReliable({
+        userId: targetStr,
+        phone: data.targetPhone,
+      });
 
       if (!targetSocketId) {
         console.log(`[CALL] Target offline: ${targetStr}`);
@@ -389,7 +396,7 @@ io.on('connection', (socket) => {
     const cleanCaller = cleanPhone(callerPhone);
     const cleanTarget = cleanPhone(targetPhone);
 
-    const targetSocketId = resolveSocketByPhone(cleanTarget);
+    const targetSocketId = await resolveSocketReliable({ phone: cleanTarget });
     console.log(`[CALL] Target socketId: ${targetSocketId || 'NOT FOUND'}`);
 
     if (targetSocketId) {
@@ -481,7 +488,7 @@ io.on('connection', (socket) => {
 
   socket.on('accept_call', async ({ callerPhone, targetPhone }) => {
     console.log(`[ACCEPT] ${targetPhone} accepts call from ${callerPhone}`);
-    const callerSocketId = resolveSocketByPhone(callerPhone);
+    const callerSocketId = await resolveSocketReliable({ phone: callerPhone });
     const cleanCaller = cleanPhone(callerPhone);
     const cleanTarget = cleanPhone(targetPhone);
     const key = callPairKey(cleanCaller, cleanTarget);

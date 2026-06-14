@@ -659,16 +659,24 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
       if (!socket) return;
 
       const waitUntilReady = () => new Promise((resolve, reject) => {
-        if (socket.connected && isRegistered) {
+        if (socket.connected) {
+          socket.emit('register_user', {
+            userId: String(user?.id || myPhoneNumber),
+            phoneNumber: myPhoneNumber,
+          });
           resolve();
           return;
         }
         const cleanup = () => {
           clearTimeout(timer);
-          socket.off('register_confirmed', ready);
+          socket.off('connect', ready);
           socket.off('connect_error', failed);
         };
         const ready = () => {
+          socket.emit('register_user', {
+            userId: String(user?.id || myPhoneNumber),
+            phoneNumber: myPhoneNumber,
+          });
           cleanup();
           resolve();
         };
@@ -677,14 +685,8 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
           reject(new Error('socket indisponible'));
         };
         const timer = setTimeout(failed, 5000);
-        socket.once('register_confirmed', ready);
+        socket.once('connect', ready);
         socket.once('connect_error', failed);
-        if (socket.connected) {
-          socket.emit('register_user', {
-            userId: String(user?.id || myPhoneNumber),
-            phoneNumber: myPhoneNumber,
-          });
-        }
       });
 
       try {
@@ -739,7 +741,6 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
     },
     [
       myPhoneNumber,
-      isRegistered,
       clearCallTimeout,
       stopRingtone,
       cleanupPeerConnection,
