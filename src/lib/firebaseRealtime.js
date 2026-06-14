@@ -15,7 +15,8 @@ function cleanPath(path) {
 }
 
 function pathUrl(path) {
-  return `${DATABASE_URL}/${cleanPath(path)}.json`;
+  const clean = cleanPath(path);
+  return `${DATABASE_URL}/${clean ? `${clean}.json` : '.json'}`;
 }
 
 function readStorage(key) {
@@ -209,6 +210,15 @@ export async function createRealtimeCall({
   }
 
   await updateFirebaseData('', updates);
+
+  const targetRole = callerRole === 'deaf' ? 'hearing' : 'deaf';
+  const routePrefix = targetRole === 'hearing' ? '/entendant/call' : '/call';
+  const acceptUrl = `${routePrefix}/${targetContactId || (targetRole === 'hearing' ? 'amina' : 'c1')}?code=${encodeURIComponent(code)}&accept=1`;
+  fetch('/api/calls/notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targetPhone, callerPhone, callerName, code, acceptUrl }),
+  }).catch(() => {});
 }
 
 export async function joinRealtimeCall({ code, uid, calleeName = '', calleePhone = '' }) {

@@ -1,15 +1,6 @@
 import { useEffect } from 'react';
 
-const getSocketUrl = () => {
-  if (import.meta.env.VITE_SOCKET_URL) return import.meta.env.VITE_SOCKET_URL;
-  if (import.meta.env.PROD) return '';
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
-    return `http://${window.location.hostname}:3001`;
-  }
-  return 'http://localhost:3001';
-};
-
-const SOCKET_URL = getSocketUrl();
+const PUSH_API = import.meta.env.PROD ? '/api' : 'http://localhost:3001';
 
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -28,7 +19,7 @@ export function usePushNotification(phoneNumber) {
 
     const registerPush = async () => {
       try {
-        const res = await fetch(`${SOCKET_URL}/vapid-public-key`);
+        const res = await fetch(`${PUSH_API}/vapid-public-key`);
         const { publicKey } = await res.json();
         if (!publicKey) return;
 
@@ -43,7 +34,7 @@ export function usePushNotification(phoneNumber) {
           });
         }
 
-        await fetch(`${SOCKET_URL}/subscribe`, {
+        await fetch(`${PUSH_API}/subscribe`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ phoneNumber, subscription }),

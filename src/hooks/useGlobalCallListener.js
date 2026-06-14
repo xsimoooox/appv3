@@ -45,7 +45,7 @@ function resolveMyPhone() {
   );
 }
 
-export function useGlobalCallListener() {
+export function useGlobalCallListener({ onAcceptCall, onRejectCall } = {}) {
   const navigate = useNavigate();
   const [incomingCall, setIncomingCall] = useState(null);
   const [accepting, setAccepting] = useState(false);
@@ -130,7 +130,7 @@ export function useGlobalCallListener() {
           latest.callerPhone,
           latest.targetContactId,
         );
-        const acceptUrl = buildCallJoinPath(myRoleRef.current, contactId, latest.code);
+        const acceptUrl = `${buildCallJoinPath(myRoleRef.current, contactId, latest.code)}&accept=1`;
         notifyIncomingCall({
           code: latest.code,
           callerName: latest.callerName,
@@ -199,6 +199,7 @@ export function useGlobalCallListener() {
         calleeName,
         calleePhone: myPhone,
       });
+      await onAcceptCall?.(call.code);
     } catch {
       /* already joined */
     }
@@ -222,7 +223,7 @@ export function useGlobalCallListener() {
     } catch {
       window.location.assign(joinPath);
     }
-  }, [navigate, accepting, myPhone]);
+  }, [navigate, accepting, myPhone, onAcceptCall]);
 
   const rejectIncomingCall = useCallback(async () => {
     const call = ringingRef.current;
@@ -234,9 +235,10 @@ export function useGlobalCallListener() {
       await clearCallInvite(myPhone, call.code).catch(() => {});
     }
     await endRealtimeCall(call.code).catch(() => {});
+    onRejectCall?.();
     setIncomingCall(null);
     ringingRef.current = null;
-  }, [myPhone]);
+  }, [myPhone, onRejectCall]);
 
   return {
     firebaseIncomingCall: incomingCall,

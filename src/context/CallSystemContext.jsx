@@ -16,6 +16,7 @@ import { usePushNotification } from '../hooks/usePushNotification';
 import { useFirebasePresence } from '../hooks/useFirebasePresence';
 import { useGlobalCallListener } from '../hooks/useGlobalCallListener';
 import { useFirebaseOutgoingCall } from '../hooks/useFirebaseOutgoingCall';
+import { useFirebaseWebRtcCall } from '../hooks/useFirebaseWebRtcCall';
 import { getCallRouteForPeer } from '../lib/callNavigation';
 import { normalizePhoneNumber } from '../lib/phoneUtils';
 import { getWakwakUser } from '../lib/wakwakUser';
@@ -28,6 +29,7 @@ export function CallSystemProvider({ children }) {
   const [callToast, setCallToast] = React.useState(null);
   const navigatedCallKeyRef = useRef(null);
   const pushAcceptHandledRef = useRef(false);
+  const firebaseAcceptHandledRef = useRef(null);
 
   const wakwakUser = useMemo(() => (typeof window !== 'undefined' ? getWakwakUser() : null), []);
 
@@ -42,24 +44,36 @@ export function CallSystemProvider({ children }) {
   const myRole = wakwakUser?.role
     || (localStorage.getItem('wakwak_profile') === 'entendant' ? 'hearing' : 'deaf');
 
-  const presenceByPhone = useFirebasePresence();
-  const {
-    firebaseIncomingCall,
-    acceptFirebaseIncomingCall,
-    rejectFirebaseIncomingCall,
-    acceptingIncomingCall,
-  } = useGlobalCallListener();
-
   const onToast = useCallback((message, type = 'info') => {
     setCallToast({ message, type });
     setTimeout(() => setCallToast(null), 2500);
   }, []);
 
+  const presenceByPhone = useFirebasePresence();
+  const {
+    startFirebaseCaller,
+    startFirebaseCallee,
+    stopFirebaseRtc,
+  } = useFirebaseWebRtcCall({ onToast });
+  const {
+    firebaseIncomingCall,
+    acceptFirebaseIncomingCall,
+    rejectFirebaseIncomingCall,
+    acceptingIncomingCall,
+  } = useGlobalCallListener({
+    onAcceptCall: startFirebaseCallee,
+    onRejectCall: stopFirebaseRtc,
+  });
+
   const {
     firebaseOutgoingCall,
     startFirebaseOutgoing,
     cancelFirebaseOutgoing,
-  } = useFirebaseOutgoingCall({ onToast });
+  } = useFirebaseOutgoingCall({
+    onToast,
+    onStartCall: startFirebaseCaller,
+    onStopCall: stopFirebaseRtc,
+  });
 
   usePushNotification(myPhoneNumber);
 
@@ -145,6 +159,18 @@ export function CallSystemProvider({ children }) {
     callSystem.acceptCallFromPush,
   ]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code');
+    if (params.get('accept') !== '1' || !code || firebaseAcceptHandledRef.current === code) {
+      return;
+    }
+    firebaseAcceptHandledRef.current = code;
+    startFirebaseCallee(code).catch(() => {
+      firebaseAcceptHandledRef.current = null;
+    });
+  }, [location.search, startFirebaseCallee]);
+
   const value = useMemo(
     () => ({
       ...callSystem,
@@ -171,6 +197,7 @@ export function CallSystemProvider({ children }) {
   return (
     <CallSystemContext.Provider value={value}>
       {children}
+      <audio id="firebase-remote-audio" autoPlay playsInline className="hidden" />
 
       {callToast && (
         <div

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wakwak-v4';
+const CACHE_NAME = 'wakwak-v5';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 const DEFAULT_API = 'http://localhost:3001';
@@ -95,10 +95,11 @@ self.addEventListener('push', (e) => {
       renotify: true,
       requireInteraction: true,
       data: {
+        code: data.code,
         callerPhone: data.callerPhone,
         targetPhone: data.targetPhone,
         url: data.url || `/?action=accept_call&from=${encodeURIComponent(data.callerPhone || '')}`,
-        apiBase: data.apiBase || DEFAULT_API,
+        apiBase: data.apiBase || '/api',
       },
       actions: [
         { action: 'accept', title: '✅ Accepter' },
@@ -144,14 +145,15 @@ self.addEventListener('notificationclick', (e) => {
   }
 
   if (e.action === 'reject') {
-    const apiBase = data.apiBase || DEFAULT_API;
+    const apiBase = data.apiBase || '/api';
     e.waitUntil(
-      fetch(`${apiBase}/reject-call`, {
+      fetch(`${apiBase}/calls/reject`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           callerPhone: data.callerPhone,
           targetPhone: data.targetPhone,
+          code: data.code,
         }),
       }),
     );

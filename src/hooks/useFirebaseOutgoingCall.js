@@ -14,7 +14,7 @@ const OUTGOING_TIMEOUT_MS = 30000;
 /**
  * Appel sortant Firebase : écran « sonnerie » jusqu'à réponse (calleeJoined), puis navigation.
  */
-export function useFirebaseOutgoingCall({ onToast } = {}) {
+export function useFirebaseOutgoingCall({ onToast, onStartCall, onStopCall } = {}) {
   const navigate = useNavigate();
   const [outgoing, setOutgoing] = useState(null);
   const outgoingRef = useRef(null);
@@ -29,7 +29,8 @@ export function useFirebaseOutgoingCall({ onToast } = {}) {
     };
     outgoingRef.current = next;
     setOutgoing(next);
-  }, []);
+    onStartCall?.(payload.code);
+  }, [onStartCall]);
 
   const cancelFirebaseOutgoing = useCallback(async () => {
     const current = outgoingRef.current;
@@ -52,7 +53,8 @@ export function useFirebaseOutgoingCall({ onToast } = {}) {
     setOutgoing(null);
     outgoingRef.current = null;
     joinedRef.current = false;
-  }, []);
+    onStopCall?.();
+  }, [onStopCall]);
 
   const completeOutgoing = useCallback(() => {
     if (joinedRef.current) return;
