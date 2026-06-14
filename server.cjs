@@ -44,6 +44,28 @@ function callPairKey(phoneA, phoneB) {
   return [phoneA, phoneB].filter(Boolean).sort().join('|');
 }
 
+function callRoomName(phoneA, phoneB) {
+  const key = callPairKey(cleanPhone(phoneA), cleanPhone(phoneB));
+  return key ? `call:${key}` : '';
+}
+
+function joinCallRoom(phoneA, phoneB) {
+  const room = callRoomName(phoneA, phoneB);
+  if (!room) return '';
+  [resolveSocketByPhone(phoneA), resolveSocketByPhone(phoneB)]
+    .filter(Boolean)
+    .forEach((socketId) => io.sockets.sockets.get(socketId)?.join(room));
+  return room;
+}
+
+function leaveCallRoom(phoneA, phoneB) {
+  const room = callRoomName(phoneA, phoneB);
+  if (!room) return;
+  [resolveSocketByPhone(phoneA), resolveSocketByPhone(phoneB)]
+    .filter(Boolean)
+    .forEach((socketId) => io.sockets.sockets.get(socketId)?.leave(room));
+}
+
 function emitTurnChange(phoneA, phoneB, canSpeak) {
   const socketA = resolveSocketByPhone(phoneA);
   const socketB = resolveSocketByPhone(phoneB);
@@ -336,6 +358,9 @@ io.on('connection', (socket) => {
         callType: data.callType || 'voice',
         timestamp: Date.now(),
       });
+      if (callerPhone && data.targetPhone) {
+        joinCallRoom(callerPhone, data.targetPhone);
+      }
 
       console.log(`[CALL] incoming_call envoyé à socket ${targetSocketId}`);
       socket.emit('call_sent', { targetUserId: targetStr, timestamp: Date.now() });
@@ -376,6 +401,7 @@ io.on('connection', (socket) => {
         targetUserId: targetIdResolved,
         timestamp: Date.now(),
       });
+      joinCallRoom(cleanCaller, cleanTarget);
       console.log(`[CALL] incoming_call sent to ${cleanTarget}`);
       return;
     }
@@ -425,6 +451,7 @@ io.on('connection', (socket) => {
       const target = cleanPhone(targetPhone || socket.data.phoneNumber);
       const caller = cleanPhone(callerPhone);
       const key = callPairKey(caller, target);
+      joinCallRoom(caller, target);
       callTurns.set(key, caller);
       emitTurnChange(caller, target, caller);
       io.to(callerSocketId).emit('call_accepted', {
@@ -442,6 +469,7 @@ io.on('connection', (socket) => {
     const cleanCaller = cleanPhone(callerPhone);
     const cleanTarget = cleanPhone(targetPhone);
     const key = callPairKey(cleanCaller, cleanTarget);
+    joinCallRoom(cleanCaller, cleanTarget);
     callTurns.set(key, cleanCaller);
     emitTurnChange(cleanCaller, cleanTarget, cleanCaller);
     if (callerSocketId) {
@@ -481,14 +509,20 @@ io.on('connection', (socket) => {
   });
 
   socket.on('voice_text', ({ callerPhone, targetPhone, text, isFinal = true }) => {
+    const room = joinCallRoom(callerPhone, targetPhone);
+    const payload = {
+      from: callerPhone,
+      text,
+      isFinal,
+      timestamp: Date.now(),
+    };
+    if (room) {
+      socket.to(room).emit('receive_voice_text', payload);
+      return;
+    }
     const targetSocketId = resolveSocketByPhone(targetPhone);
     if (targetSocketId) {
-      io.to(targetSocketId).emit('receive_voice_text', {
-        from: callerPhone,
-        text,
-        isFinal,
-        timestamp: Date.now(),
-      });
+      io.to(targetSocketId).emit('receive_voice_text', payload);
     }
   });
 
@@ -520,6 +554,7 @@ io.on('connection', (socket) => {
     }
     if (callerPhone && targetPhone) {
       callTurns.delete(callPairKey(callerPhone, targetPhone));
+      leaveCallRoom(callerPhone, targetPhone);
       const otherPhone =
         socket.data.phoneNumber === cleanPhone(callerPhone)
           ? cleanPhone(targetPhone)

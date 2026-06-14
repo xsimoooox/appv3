@@ -1188,9 +1188,9 @@ export default function Contacts() {
     return `${c.firstName[0] || ''}${c.lastName[0] || ''}`.toUpperCase();
   };
 
-  const displayedRemoteText = activeSessionCode
-    ? (remoteTranscript.text || interlocuteurDit)
-    : ((activeCall && receivedText) ? receivedText : interlocuteurDit);
+  const displayedRemoteText = (activeCall && receivedText)
+    ? receivedText
+    : (remoteTranscript.text || interlocuteurDit);
   const displayedRemoteWords = displayedRemoteText ? displayedRemoteText.split(' ').filter(Boolean) : [];
 
   // RENDER SWITCH
