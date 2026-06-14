@@ -19,15 +19,29 @@ if (import.meta.env.VITE_TURN_URL) {
 }
 const RTC_CONFIG = { iceServers };
 
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 async function waitForOffer(code) {
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    const offer = await getFirebaseData(`calls/${code}/rtc/offer`);
-    if (offer?.type) return offer;
-    await wait(250);
-  }
-  throw new Error("L'offre audio n'est pas disponible");
+  const path = `calls/${code}/rtc/offer`;
+  const existing = await getFirebaseData(path).catch(() => null);
+  if (existing?.type) return existing;
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    let stop = () => {};
+    const finish = (offer) => {
+      if (settled || !offer?.type) return;
+      settled = true;
+      clearTimeout(timeout);
+      stop();
+      resolve(offer);
+    };
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      stop();
+      reject(new Error("L'offre audio n'est pas disponible"));
+    }, 20000);
+    stop = listenFirebaseValue(path, finish);
+  });
 }
 
 export function useFirebaseWebRtcCall({ onToast } = {}) {

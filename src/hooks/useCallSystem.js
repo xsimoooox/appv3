@@ -236,8 +236,15 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
           }
         }
 
-        if (interimText) {
-          setSentVoiceText(interimText);
+        if (interimText.trim()) {
+          const text = interimText.trim();
+          setSentVoiceText(text);
+          getSocket()?.emit('voice_text', {
+            callerPhone: myPhoneNumber,
+            targetPhone,
+            text,
+            isFinal: false,
+          });
         }
 
         if (finalText.trim()) {
@@ -248,11 +255,11 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
 
           clearTimeout(voiceDebounceRef.current);
           voiceDebounceRef.current = setTimeout(() => {
-            if (!canSpeakNow(turnHolder, myPhoneNumber)) return;
             getSocket()?.emit('voice_text', {
               callerPhone: myPhoneNumber,
               targetPhone,
               text,
+              isFinal: true,
             });
             setTimeout(() => setSentVoiceText(''), 2000);
           }, 300);
@@ -757,12 +764,8 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
   );
 
   const emitVoiceText = useCallback(
-    (text) => {
+    (text, isFinal = true) => {
       if (!activeCall?.withPhone || !text?.trim()) return;
-      if (!canSpeakNow(turnHolder, myPhoneNumber)) {
-        onToast?.('⏳ Attendez votre tour pour parler', 'info');
-        return;
-      }
       const trimmed = text.trim();
       if (trimmed === lastVoiceTextRef.current) return;
       lastVoiceTextRef.current = trimmed;
@@ -770,10 +773,11 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
         callerPhone: myPhoneNumber,
         targetPhone: activeCall.withPhone,
         text: trimmed,
+        isFinal,
       });
       setSentVoiceText(trimmed);
     },
-    [activeCall, myPhoneNumber, turnHolder, onToast],
+    [activeCall, myPhoneNumber],
   );
 
   const toggleMic = useCallback(() => {

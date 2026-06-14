@@ -705,7 +705,7 @@ function CallScreen({ contact }) {
   const codeFromUrl = new URLSearchParams(location.search).get('code');
   const isJoiningExisting = Boolean(codeFromUrl);
   const endedIntentionallyRef = useRef(false);
-  const { endCall, activeCall, receivedText, emitVoiceText, canSpeakTurn } = useCallSystemContext();
+  const { endCall, activeCall, receivedText, emitVoiceText } = useCallSystemContext();
   const canvasRef = useRef(null);
   const recognitionRef = useRef(null);
   const finalTranscriptRef = useRef('');
@@ -952,15 +952,15 @@ function CallScreen({ contact }) {
         liveTranscriptRef.current = nextFinal;
         setFinalTranscript(nextFinal);
         setInterimTranscript('');
-        if (activeCall?.withPhone && canSpeakTurn) {
-          emitVoiceText(nextFinal);
+        if (activeCall?.withPhone) {
+          emitVoiceText(nextFinal, true);
         }
         queueTranscript(nextFinal, true);
       } else if (interim.trim()) {
         const liveText = `${finalTranscriptRef.current} ${interim}`.trim();
         setInterimTranscript(interim);
-        if (activeCall?.withPhone && canSpeakTurn) {
-          emitVoiceText(liveText);
+        if (activeCall?.withPhone) {
+          emitVoiceText(liveText, false);
         }
         queueTranscript(liveText, false);
       }
@@ -992,7 +992,7 @@ function CallScreen({ contact }) {
       recognition.onend = null;
       recognition.stop();
     };
-  }, [speechLang, sessionCode, activeCall, emitVoiceText, canSpeakTurn]);
+  }, [speechLang, sessionCode, activeCall, emitVoiceText]);
 
   const time = `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
   const previewText = `${finalTranscript} ${interimTranscript}`.trim();

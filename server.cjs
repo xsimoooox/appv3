@@ -480,22 +480,15 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('voice_text', ({ callerPhone, targetPhone, text }) => {
-    const key = callPairKey(callerPhone, targetPhone);
-    const holder = callTurns.get(key);
-    if (holder && holder !== callerPhone) {
-      socket.emit('turn_denied', { reason: 'not_your_turn', canSpeak: holder });
-      return;
-    }
+  socket.on('voice_text', ({ callerPhone, targetPhone, text, isFinal = true }) => {
     const targetSocketId = resolveSocketByPhone(targetPhone);
     if (targetSocketId) {
       io.to(targetSocketId).emit('receive_voice_text', {
         from: callerPhone,
         text,
+        isFinal,
         timestamp: Date.now(),
       });
-      callTurns.set(key, targetPhone);
-      emitTurnChange(callerPhone, targetPhone, targetPhone);
     }
   });
 
