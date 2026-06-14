@@ -1,4 +1,4 @@
-# WakWak
+# VoxManus
 
 ## Déploiement Vercel
 

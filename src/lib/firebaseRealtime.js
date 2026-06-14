@@ -50,7 +50,7 @@ export function generateSessionCode() {
 }
 
 export function getClientUid(role = 'user') {
-  const key = `wakwak_uid_${role}`;
+  const key = `voxmanus_uid_${role}`;
   const existing = readStorage(key);
   if (existing) return existing;
   const uid = `${role}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -59,11 +59,11 @@ export function getClientUid(role = 'user') {
 }
 
 export function getStoredSessionCode() {
-  return readStorage('wakwak_active_session_code') || '';
+  return readStorage('voxmanus_active_session_code') || '';
 }
 
 export function storeSessionCode(code) {
-  writeStorage('wakwak_active_session_code', code);
+  writeStorage('voxmanus_active_session_code', code);
 }
 
 export function liveTranscriptPathForPhone(phone) {

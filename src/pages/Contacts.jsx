@@ -50,9 +50,10 @@ import {
 } from '../lib/firebaseRealtime';
 import { getPresenceLabel } from '../lib/contactCallUi';
 import { setPresenceAvailable, setPresenceInCall } from '../lib/presenceFirebase';
-import { getWakwakUser } from '../lib/wakwakUser';
+import { getVoxManusUser } from '../lib/voxmanusUser';
 import { useCalleeJoinedSignal } from '../hooks/useCalleeJoinedSignal';
 import CalleeJoinedBanner from '../components/CalleeJoinedBanner';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { startContactCall } from '../lib/startContactCall';
 import { PHOTOS } from '../lib/lsfData';
 
@@ -205,6 +206,7 @@ export default function Contacts() {
   const [contacts, setContacts] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [toast, setToast] = useState(null);
+  const [deleteContactId, setDeleteContactId] = useState(null);
 
   // Form State (Screen 2)
   const [firstName, setFirstName] = useState('');
@@ -436,7 +438,7 @@ export default function Contacts() {
 
         if (result.mode === 'firebase') {
           setActiveSessionCode(result.code);
-          const user = getWakwakUser();
+          const user = getVoxManusUser();
           if (user?.phoneNumber) {
             setPresenceInCall(user.phoneNumber, result.code).catch(() => {});
           }
@@ -510,12 +512,15 @@ export default function Contacts() {
 
   // Delete contact
   const handleDeleteContact = (contactId) => {
-    if (window.confirm("Voulez-vous vraiment supprimer ce contact ?")) {
-      const updated = contacts.filter(c => c.id !== contactId);
-      saveToFirestore(updated);
-      showToast("🗑️ Contact supprimé");
-      navigate('/contacts');
-    }
+    setDeleteContactId(contactId);
+  };
+
+  const confirmDeleteContact = () => {
+    const updated = contacts.filter(c => c.id !== deleteContactId);
+    saveToFirestore(updated);
+    setDeleteContactId(null);
+    showToast("Contact supprimé");
+    navigate('/contacts');
   };
 
   // Search filter
@@ -819,7 +824,7 @@ export default function Contacts() {
     setRealtimeConnection('reconnecting');
 
     try {
-      const user = getWakwakUser();
+      const user = getVoxManusUser();
       const uid = getClientUid('deaf');
       const callMeta = await getFirebaseData(`calls/${code}`);
       const isCaller = String(callMeta?.caller || '') === String(user?.id || uid);
@@ -1065,9 +1070,9 @@ export default function Contacts() {
   }, [receivedText, processIncomingVoiceText]);
 
   useEffect(() => {
-    window.wakwakProcessAvatar = processIncomingVoiceText;
+    window.voxmanusProcessAvatar = processIncomingVoiceText;
     return () => {
-      delete window.wakwakProcessAvatar;
+      delete window.voxmanusProcessAvatar;
     };
   }, [processIncomingVoiceText]);
 
@@ -1151,7 +1156,7 @@ export default function Contacts() {
     endCall();
     if (activeSessionCode) {
       endRealtimeCall(activeSessionCode).catch(() => {});
-      const user = getWakwakUser();
+      const user = getVoxManusUser();
       if (user?.phoneNumber) {
         setPresenceAvailable(user.phoneNumber).catch(() => {});
       }
@@ -1243,7 +1248,7 @@ export default function Contacts() {
             <h1 className="text-[15px] font-bold text-[#111111]">Mes Contacts</h1>
             <button
               onClick={() => navigate('/contacts/add')}
-              className="w-[30px] h-[30px] rounded-full bg-[#6366f1] flex items-center justify-center text-white active:scale-95 transition-transform cursor-pointer"
+              className="w-[30px] h-[30px] rounded-full bg-[#0000B4] flex items-center justify-center text-white active:scale-95 transition-transform cursor-pointer"
             >
               <UserPlus size={14} strokeWidth={2.5} />
             </button>
@@ -1272,7 +1277,7 @@ export default function Contacts() {
             {/* EMERGENCY CONTACTS */}
             {filteredEmergency.length > 0 && (
               <div className="space-y-2">
-                <h2 className="text-[9px] font-bold text-[#888888] uppercase tracking-[0.6px] select-none">
+                <h2 className="text-[9px] font-bold text-[#666680888] uppercase tracking-[0.6px] select-none">
                   CONTACTS D'URGENCE
                 </h2>
                 <div className="space-y-2.5">
@@ -1343,7 +1348,7 @@ export default function Contacts() {
 
             {/* NORMAL CONTACTS */}
             <div className="space-y-2">
-              <h2 className="text-[9px] font-bold text-[#888888] uppercase tracking-[0.6px] select-none">
+              <h2 className="text-[9px] font-bold text-[#666680888] uppercase tracking-[0.6px] select-none">
                 MES CONTACTS
               </h2>
               {filteredNormal.length === 0 ? (
@@ -1355,8 +1360,8 @@ export default function Contacts() {
                     let bgCol = '#fffbeb';
                     let textCol = '#fbbf24';
                     if (c.role === 'Sourd') {
-                      bgCol = '#e8f5e9';
-                      textCol = '#4ade80';
+                      bgCol = '#EAF5EB';
+                      textCol = '#2E7D32';
                     } else if (c.role === 'Médecin') {
                       bgCol = '#eff6ff';
                       textCol = '#60a5fa';
@@ -1460,7 +1465,7 @@ export default function Contacts() {
             
             {/* PHOTO PICKER / INITIALS PREVIEW */}
             <div className="flex flex-col items-center justify-center py-2 shrink-0 gap-1.5">
-              <div className="relative w-[60px] h-[60px] rounded-[16px] bg-[#ede7f6] border border-violet-500/30 flex items-center justify-center text-white text-[20px] font-black uppercase tracking-wider overflow-hidden">
+              <div className="relative w-[60px] h-[60px] rounded-[16px] bg-[#EEEEFF] border border-violet-500/30 flex items-center justify-center text-white text-[20px] font-black uppercase tracking-wider overflow-hidden">
                 {photoDataUrl ? (
                   <img src={photoDataUrl} alt="Preview" className="w-full h-full object-cover" />
                 ) : firstName && lastName ? (
@@ -1562,7 +1567,7 @@ export default function Contacts() {
                     onClick={() => setRole(r)}
                     className={`py-2 rounded-[8px] text-[10px] font-extrabold uppercase tracking-wide border cursor-pointer active:scale-95 transition-all ${
                       role === r 
-                        ? 'bg-[#6366f1] text-white border-[#6366f1]' 
+                        ? 'bg-[#0000B4] text-white border-[#0000B4]'
                         : 'bg-[#ffffff] border-[#e0e0e0] text-slate-400 hover:text-white'
                     }`}
                   >
@@ -1598,7 +1603,7 @@ export default function Contacts() {
                 <button
                   type="button"
                   onClick={() => setIsSOS(prev => !prev)}
-                  className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer flex items-center ${isSOS ? 'bg-[#EF4444] justify-end' : 'bg-slate-800 justify-start'}`}
+                  className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer flex items-center ${isSOS ? 'bg-[#E53935] justify-end' : 'bg-slate-800 justify-start'}`}
                 >
                   <span className="w-4 h-4 bg-white rounded-full shadow" />
                 </button>
@@ -1616,7 +1621,7 @@ export default function Contacts() {
                 <button
                   type="button"
                   onClick={() => setIsFav(prev => !prev)}
-                  className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer flex items-center ${isFav ? 'bg-[#F59E0B] justify-end' : 'bg-slate-800 justify-start'}`}
+                  className={`w-9 h-5 rounded-full p-0.5 transition-colors cursor-pointer flex items-center ${isFav ? 'bg-[#F0691E] justify-end' : 'bg-slate-800 justify-start'}`}
                 >
                   <span className="w-4 h-4 bg-white rounded-full shadow" />
                 </button>
@@ -1626,7 +1631,7 @@ export default function Contacts() {
             {/* SAVE BUTTON */}
             <button
               type="submit"
-              className="w-full h-12 bg-[#6366f1] text-white rounded-[12px] font-extrabold text-[12px] shadow-lg shadow-indigo-650/15 tracking-wider uppercase active:scale-[0.98] transition-transform cursor-pointer mt-4 flex items-center justify-center gap-2"
+              className="w-full h-12 bg-[#0000B4] text-white rounded-[12px] font-extrabold text-[12px] shadow-lg shadow-indigo-650/15 tracking-wider uppercase active:scale-[0.98] transition-transform cursor-pointer mt-4 flex items-center justify-center gap-2"
             >
               <Check size={18} strokeWidth={2.5} />
               Enregistrer
@@ -1647,7 +1652,7 @@ export default function Contacts() {
           <header className="flex py-2 mb-6 shrink-0">
             <button 
               onClick={() => navigate('/contacts')} 
-              className="text-[#6366f1] font-bold text-[13px] flex items-center gap-1.5 cursor-pointer"
+              className="text-[#0000B4] font-bold text-[13px] flex items-center gap-1.5 cursor-pointer"
             >
               <ArrowLeft size={14} strokeWidth={2.5} /> Contacts
             </button>
@@ -1657,7 +1662,7 @@ export default function Contacts() {
           <div className="bg-[#ffffff] border border-[#e0e0e0] rounded-[16px] p-4 flex flex-col items-center text-center shadow-lg mb-4 shrink-0 select-text">
             
             {/* Avatar big */}
-            <div className="w-[54px] h-[54px] rounded-[16px] bg-[#ede7f6] border border-violet-500/30 flex items-center justify-center text-white text-[18px] font-black uppercase tracking-wider mb-3 overflow-hidden">
+            <div className="w-[54px] h-[54px] rounded-[16px] bg-[#EEEEFF] border border-violet-500/30 flex items-center justify-center text-white text-[18px] font-black uppercase tracking-wider mb-3 overflow-hidden">
               {activeContact.photoUrl ? (
                 <img src={activeContact.photoUrl} alt="" className="w-full h-full object-cover" />
               ) : (
@@ -1693,7 +1698,7 @@ export default function Contacts() {
             type="button"
             onClick={launchCall}
             disabled={getRealtimeStatus(getContactPhone(activeContact), activeContact.status) === 'busy'}
-            className="w-full h-12 bg-[#16a34a] hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-[12px] font-extrabold text-[12px] shadow-md shadow-emerald-700/10 flex items-center justify-center gap-2 tracking-wide uppercase active:scale-[0.98] transition-transform cursor-pointer mb-5 shrink-0"
+            className="w-full h-12 bg-[#2E7D32] hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-[12px] font-extrabold text-[12px] shadow-md shadow-emerald-700/10 flex items-center justify-center gap-2 tracking-wide uppercase active:scale-[0.98] transition-transform cursor-pointer mb-5 shrink-0"
           >
             <Phone size={14} strokeWidth={2.5} /> Appeler en LSF
           </button>
@@ -1732,7 +1737,7 @@ export default function Contacts() {
             {/* Partager */}
             <button
               onClick={() => {
-                navigator.clipboard.writeText(`Contact WakWak: ${activeContact.firstName} ${activeContact.lastName} (${activeContact.phone})`);
+                navigator.clipboard.writeText(`Contact VoxManus: ${activeContact.firstName} ${activeContact.lastName} (${activeContact.phone})`);
                 showToast("📋 Coordonnées copiées !");
               }}
               className="flex items-center gap-2 bg-[#ffffff] hover:bg-[#eeeeee] border border-[#e0e0e0] p-3 rounded-[10px] text-[11px] font-bold text-slate-350 cursor-pointer active:scale-95 transition-all text-left"
@@ -1763,9 +1768,9 @@ export default function Contacts() {
 
           {/* LAST CALL CARD */}
           <div className="mt-auto shrink-0 select-text">
-            <h3 className="text-[9px] font-bold text-[#888888] uppercase tracking-[0.6px] mb-2">DERNIER APPEL</h3>
+            <h3 className="text-[9px] font-bold text-[#666680888] uppercase tracking-[0.6px] mb-2">DERNIER APPEL</h3>
             {contactLastCall ? (
-              <div className="bg-[#e8f5e9] border border-[#c8e6c9] rounded-[12px] p-3 flex flex-col gap-1.5 shadow-inner">
+              <div className="bg-[#EAF5EB] border border-[#c8e6c9] rounded-[12px] p-3 flex flex-col gap-1.5 shadow-inner">
                 <div className="flex justify-between items-center text-[10.5px] font-bold text-emerald-400">
                   <span>Date : {contactLastCall.date} ({contactLastCall.time})</span>
                   <span>Durée : {contactLastCall.duration}s</span>
@@ -1867,12 +1872,12 @@ export default function Contacts() {
                   value={sessionCodeInput}
                   onChange={(event) => setSessionCodeInput(event.target.value.toUpperCase())}
                   placeholder="Entrer le code : ex ABC-123"
-                  className="h-9 min-w-0 flex-1 rounded-[10px] border border-[#6366f1] bg-white px-3 text-center text-[12px] font-extrabold text-[#1F2937] placeholder:text-[#9CA3AF] outline-none"
+                  className="h-9 min-w-0 flex-1 rounded-[10px] border border-[#0000B4] bg-white px-3 text-center text-[12px] font-extrabold text-[#1F2937] placeholder:text-[#878787] outline-none"
                 />
                 <button
                   type="button"
                   onClick={() => joinSessionByCode(sessionCodeInput)}
-                  className="h-9 rounded-[10px] bg-[#6366f1] px-3 text-[11px] font-extrabold text-white active:scale-95 flex items-center gap-1"
+                  className="h-9 rounded-[10px] bg-[#0000B4] px-3 text-[11px] font-extrabold text-white active:scale-95 flex items-center gap-1"
                 >
                   <LogIn size={14} strokeWidth={2.5} />
                   Rejoindre
@@ -1886,7 +1891,7 @@ export default function Contacts() {
               </div>
             )}
             {realtimeConnection === 'lost' && (
-              <div className="mb-2 rounded-[9px] bg-[#fee2e2] px-3 py-1.5 text-[9px] font-bold text-[#ef4444]">
+              <div className="mb-2 rounded-[9px] bg-[#fee2e2] px-3 py-1.5 text-[9px] font-bold text-[#E53935]">
                 Connexion perdue
               </div>
             )}
@@ -1894,16 +1899,16 @@ export default function Contacts() {
             {remoteStatus === 'speaking' && (
               <div className="mb-2 flex items-center justify-center gap-1 rounded-[9px] bg-[#f5f0ff] px-3 py-1.5 text-[9px] font-bold text-[#a78bfa]">
                 <span>🎙️ La personne entendante est en train de parler</span>
-                <span className="w-1 h-1 rounded-full bg-[#6366f1] animate-blink-1" />
-                <span className="w-1 h-1 rounded-full bg-[#6366f1] animate-blink-2" />
-                <span className="w-1 h-1 rounded-full bg-[#6366f1] animate-blink-3" />
+                <span className="w-1 h-1 rounded-full bg-[#0000B4] animate-blink-1" />
+                <span className="w-1 h-1 rounded-full bg-[#0000B4] animate-blink-2" />
+                <span className="w-1 h-1 rounded-full bg-[#0000B4] animate-blink-3" />
               </div>
             )}
 
             <span className="text-[9px] italic text-[#6B7280] font-bold mb-1 uppercase tracking-wide select-none">
               🗣️ L'interlocuteur dit :
             </span>
-            <div className={`${remoteTranscript.isFinal ? 'text-[24px] text-[#111111]' : 'text-[16px] text-[#666666] italic'} font-semibold leading-tight pb-0.5`}>
+            <div className={`${remoteTranscript.isFinal ? 'text-[24px] text-[#111111]' : 'text-[16px] text-[#5F5F72] italic'} font-semibold leading-tight pb-0.5`}>
               {displayedRemoteWords.length > 0 ? (
                 <div className="flex flex-wrap gap-x-1">
                   {displayedRemoteWords.map((w, wIdx) => (
@@ -1920,13 +1925,13 @@ export default function Contacts() {
                   ))}
                 </div>
               ) : (
-                <span className="text-[#9CA3AF] italic">En attente de parole...</span>
+                <span className="text-[#878787] italic">En attente de parole...</span>
               )}
             </div>
 
             {/* Words warnings */}
             {avatarMode === 'alex' && alexSkippedWords && alexSkippedWords.length > 0 && (
-              <div className="text-[8.5px] font-bold text-[#f59e0b] mt-1 flex flex-wrap gap-1 items-center select-none">
+              <div className="text-[8.5px] font-bold text-[#D25A1E] mt-1 flex flex-wrap gap-1 items-center select-none">
                 <span>⚠️ Non disponibles:</span>
                 {alexSkippedWords.map((w, idx) => (
                   <span key={idx} className="bg-[#FFFBEB] border border-[#FDE68A] px-0.5 rounded">[{w}]</span>
@@ -1974,7 +1979,7 @@ export default function Contacts() {
               <button
                 type="button"
                 onClick={confirmEndCall}
-                className="flex-1 h-9 rounded-lg bg-[#EF4444] hover:bg-red-600 text-white font-extrabold text-xs cursor-pointer transition-colors active:scale-95 flex items-center justify-center gap-1"
+                className="flex-1 h-9 rounded-lg bg-[#E53935] hover:bg-red-600 text-white font-extrabold text-xs cursor-pointer transition-colors active:scale-95 flex items-center justify-center gap-1"
               >
                 <Check size={14} strokeWidth={2.5} />
                 Terminer
@@ -2007,7 +2012,7 @@ export default function Contacts() {
               <button
                 type="button"
                 onClick={() => handleSaveConversation(true)}
-                className="flex-1 h-10 rounded-xl bg-[#16a34a] hover:bg-emerald-600 text-white font-extrabold text-xs cursor-pointer transition-colors active:scale-95 flex items-center justify-center gap-1"
+                className="flex-1 h-10 rounded-xl bg-[#2E7D32] hover:bg-emerald-600 text-white font-extrabold text-xs cursor-pointer transition-colors active:scale-95 flex items-center justify-center gap-1"
               >
                 <Check size={14} strokeWidth={2.5} />
                 Enregistrer
@@ -2017,6 +2022,13 @@ export default function Contacts() {
         </div>
       )}
 
+      <ConfirmDialog
+        open={Boolean(deleteContactId)}
+        title="Supprimer ce contact ?"
+        message="Ce contact sera retiré définitivement de votre liste VoxManus."
+        onCancel={() => setDeleteContactId(null)}
+        onConfirm={confirmDeleteContact}
+      />
     </div>
   );
 }

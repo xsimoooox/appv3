@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { getWakwakUser } from '../lib/wakwakUser';
+import { getVoxManusUser } from '../lib/voxmanusUser';
 
 /**
  * Protège les routes : sans profil valide → page d'accueil auth (/).
@@ -12,7 +12,7 @@ export default function AuthGate({ children }) {
   const isAuthPage = location.pathname === '/';
 
   useEffect(() => {
-    const user = getWakwakUser();
+    const user = getVoxManusUser();
 
     if (isAuthPage) return;
 

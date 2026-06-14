@@ -17,9 +17,10 @@ import {
 } from '../lib/firebaseRealtime';
 import { useCalleeJoinedSignal } from '../hooks/useCalleeJoinedSignal';
 import CalleeJoinedBanner from '../components/CalleeJoinedBanner';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { getPresenceLabel } from '../lib/contactCallUi';
 import { setPresenceAvailable, setPresenceInCall } from '../lib/presenceFirebase';
-import { getWakwakUser } from '../lib/wakwakUser';
+import { getVoxManusUser } from '../lib/voxmanusUser';
 import {
   Calendar,
   Check,
@@ -44,7 +45,7 @@ import { getEntendantCallState } from '../lib/contactCallUi';
 import { startContactCall } from '../lib/startContactCall';
 import { getContactPhone, normalizePhoneNumber } from '../lib/phoneUtils';
 
-const CONTACTS_STORAGE_KEY = 'wakwak_contacts';
+const CONTACTS_STORAGE_KEY = 'voxmanus_contacts';
 
 function getDefaultContacts() {
   return HEARING_CONTACTS.map((c) => ({
@@ -142,7 +143,7 @@ const HEARING_CONTACTS = [
 const statusColor = {
   online: '#22c55e',
   busy: '#f97316',
-  offline: '#333333',
+  offline: '#878787',
 };
 
 function getContact(id, contacts) {
@@ -156,7 +157,7 @@ function ContactAvatar({ contact, size = 'sm' }) {
     : 'w-8 h-8 rounded-[9px] text-[11px]';
 
   return (
-    <div className={`${className} bg-[#e8f5e9] text-[#4ade80] flex items-center justify-center font-extrabold shrink-0`}>
+    <div className={`${className} bg-[#EAF5EB] text-[#2E7D32] flex items-center justify-center font-extrabold shrink-0`}>
       {contact.initials}
     </div>
   );
@@ -207,7 +208,7 @@ function ContactList() {
       });
 
       if (result.mode === 'firebase') {
-        const user = getWakwakUser();
+        const user = getVoxManusUser();
         if (user?.phoneNumber) {
           setPresenceInCall(user.phoneNumber, result.code).catch(() => {});
         }
@@ -239,7 +240,7 @@ function ContactList() {
   return (
     <div className="w-full max-w-md mx-auto min-h-screen bg-[#f5f5f5] text-[#111111] pb-[88px] select-none animate-fade-in">
       {listToast && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[10001] px-4 py-2 rounded-full bg-[#6366f1] text-white text-[11px] font-bold shadow-lg">
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[10001] px-4 py-2 rounded-full bg-[#0000B4] text-white text-[11px] font-bold shadow-lg">
           {listToast}
         </div>
       )}
@@ -247,7 +248,7 @@ function ContactList() {
         <h1 className="text-[13px] font-bold text-[#111111]">Mes Contacts</h1>
         <button
           onClick={() => navigate('/entendant/contacts/add')}
-          className="w-[26px] h-[26px] rounded-full bg-[#6366f1] text-white flex items-center justify-center active:scale-95 cursor-pointer"
+          className="w-[26px] h-[26px] rounded-full bg-[#0000B4] text-white flex items-center justify-center active:scale-95 cursor-pointer"
           aria-label="Ajouter contact"
         >
           <UserPlus size={14} strokeWidth={2.5} />
@@ -255,17 +256,17 @@ function ContactList() {
       </header>
 
       <div className="mx-3 my-2 h-9 rounded-[8px] bg-[#ffffff] border border-[#e0e0e0] flex items-center px-3 gap-2">
-        <Search className="text-[#777777] shrink-0" size={14} strokeWidth={2.25} />
+        <Search className="text-[#5F5F72] shrink-0" size={14} strokeWidth={2.25} />
         <input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Rechercher un contact..."
-          className="flex-1 bg-transparent outline-none text-[10px] text-[#333333] placeholder:text-[#666666] font-semibold"
+          className="flex-1 bg-transparent outline-none text-[10px] text-[#878787] placeholder:text-[#5F5F72] font-semibold"
         />
       </div>
 
       <section className="px-3 pt-2">
-        <h2 className="text-[8px] font-bold text-[#888888] uppercase tracking-[0.6px] mb-2">MES CONTACTS SOURDS</h2>
+        <h2 className="text-[8px] font-bold text-[#666680888] uppercase tracking-[0.6px] mb-2">MES CONTACTS SOURDS</h2>
 
         <div className="space-y-[5px]">
           {filteredContacts.map((contact) => {
@@ -279,7 +280,7 @@ function ContactList() {
               <ContactAvatar contact={contact} />
               <div className="min-w-0 flex-1">
                 <div className="text-[11px] font-bold text-[#111111] leading-tight truncate">{contact.name}</div>
-                <div className="text-[9px] text-[#777777] font-semibold flex items-center gap-1.5 mt-0.5">
+                <div className="text-[9px] text-[#5F5F72] font-semibold flex items-center gap-1.5 mt-0.5">
                   <span>{contact.role === 'hearing' ? 'Entendant' : 'Sourd'}</span>
                   <span className="w-[7px] h-[7px] rounded-full inline-block" style={{ backgroundColor: statusColor[liveStatus] || statusColor.offline }} />
                   <span>{statusLabel(liveStatus)}</span>
@@ -381,7 +382,7 @@ function AddContact() {
       <button
         type="button"
         onClick={() => navigate('/entendant/contacts')}
-        className="flex items-center gap-1 text-[11px] text-[#6366f1] font-bold px-3.5 py-3"
+        className="flex items-center gap-1 text-[11px] text-[#0000B4] font-bold px-3.5 py-3"
       >
         <ChevronLeft size={14} strokeWidth={2.5} />
         Contacts
@@ -389,36 +390,36 @@ function AddContact() {
 
       <div className="px-3.5">
         <h1 className="text-[15px] font-extrabold">Ajouter Contact</h1>
-        <p className="text-[10px] text-[#777777] font-semibold mt-1">Créer une fiche pour une personne sourde.</p>
+        <p className="text-[10px] text-[#5F5F72] font-semibold mt-1">Créer une fiche pour une personne sourde.</p>
 
         {formError && (
-          <p className="mt-3 text-[11px] font-bold text-[#ef4444]">{formError}</p>
+          <p className="mt-3 text-[11px] font-bold text-[#E53935]">{formError}</p>
         )}
 
         <div className="mt-4 rounded-[12px] border border-[#e5e5e5] bg-[#fafafa] p-3 space-y-3">
           <label className="block">
-            <span className="text-[9px] font-bold text-[#777777] uppercase tracking-[0.5px]">Nom complet</span>
+            <span className="text-[9px] font-bold text-[#5F5F72] uppercase tracking-[0.5px]">Nom complet</span>
             <input
               value={newContact.name}
               onChange={(e) => setNewContact((prev) => ({ ...prev, name: e.target.value }))}
-              className="mt-1 w-full h-10 rounded-[9px] bg-[#ffffff] border border-[#e0e0e0] px-3 text-[11px] outline-none text-[#333333]"
+              className="mt-1 w-full h-10 rounded-[9px] bg-[#ffffff] border border-[#e0e0e0] px-3 text-[11px] outline-none text-[#878787]"
             />
           </label>
           <label className="block">
-            <span className="text-[9px] font-bold text-[#777777] uppercase tracking-[0.5px]">Téléphone</span>
+            <span className="text-[9px] font-bold text-[#5F5F72] uppercase tracking-[0.5px]">Téléphone</span>
             <input
               value={newContact.phoneNumber}
               onChange={(e) => setNewContact((prev) => ({ ...prev, phoneNumber: e.target.value }))}
               placeholder="+212600000001"
-              className="mt-1 w-full h-10 rounded-[9px] bg-[#ffffff] border border-[#e0e0e0] px-3 text-[11px] outline-none text-[#333333]"
+              className="mt-1 w-full h-10 rounded-[9px] bg-[#ffffff] border border-[#e0e0e0] px-3 text-[11px] outline-none text-[#878787]"
             />
           </label>
           <label className="block">
-            <span className="text-[9px] font-bold text-[#777777] uppercase tracking-[0.5px]">Rôle</span>
+            <span className="text-[9px] font-bold text-[#5F5F72] uppercase tracking-[0.5px]">Rôle</span>
             <select
               value={newContact.role}
               onChange={(e) => setNewContact((prev) => ({ ...prev, role: e.target.value }))}
-              className="mt-1 w-full h-10 rounded-[9px] bg-[#ffffff] border border-[#e0e0e0] px-3 text-[11px] outline-none text-[#333333] font-semibold"
+              className="mt-1 w-full h-10 rounded-[9px] bg-[#ffffff] border border-[#e0e0e0] px-3 text-[11px] outline-none text-[#878787] font-semibold"
             >
               <option value="deaf">Sourd</option>
               <option value="hearing">Entendant</option>
@@ -431,14 +432,14 @@ function AddContact() {
               onChange={(e) => setNewContact((prev) => ({ ...prev, isEmergency: e.target.checked }))}
               className="rounded border-[#e0e0e0]"
             />
-            <span className="text-[10px] font-bold text-[#777777]">Contact SOS</span>
+            <span className="text-[10px] font-bold text-[#5F5F72]">Contact SOS</span>
           </label>
         </div>
 
         <button
           type="button"
           onClick={handleAddContact}
-          className="mt-4 w-full h-11 rounded-[12px] bg-[#6366f1] text-white text-[12px] font-extrabold active:scale-[0.98] flex items-center justify-center gap-2"
+          className="mt-4 w-full h-11 rounded-[12px] bg-[#0000B4] text-white text-[12px] font-extrabold active:scale-[0.98] flex items-center justify-center gap-2"
         >
           <Check size={18} strokeWidth={2.5} />
           Enregistrer
@@ -446,7 +447,7 @@ function AddContact() {
         <button
           type="button"
           onClick={() => navigate('/entendant/contacts')}
-          className="mt-2 w-full h-10 rounded-[12px] bg-transparent border border-[#333333] text-[#666666] text-[12px] font-bold active:scale-[0.98]"
+          className="mt-2 w-full h-10 rounded-[12px] bg-transparent border border-[#878787] text-[#5F5F72] text-[12px] font-bold active:scale-[0.98]"
         >
           Annuler
         </button>
@@ -458,12 +459,12 @@ function AddContact() {
 function DetailRow({ icon: Icon, label, value }) {
   return (
     <div className="flex items-center gap-3 px-3 py-3 border-b border-[#eeeeee] last:border-b-0">
-      <span className="w-7 h-7 rounded-[8px] bg-[#eeeeee] text-[#666666] flex items-center justify-center shrink-0">
+      <span className="w-7 h-7 rounded-[8px] bg-[#eeeeee] text-[#5F5F72] flex items-center justify-center shrink-0">
         <Icon size={14} strokeWidth={2.25} />
       </span>
       <span className="min-w-0">
-        <span className="block text-[9px] text-[#777777] font-bold">{label}</span>
-        <span className="block text-[11px] text-[#333333] font-semibold mt-0.5">{value}</span>
+        <span className="block text-[9px] text-[#5F5F72] font-bold">{label}</span>
+        <span className="block text-[11px] text-[#878787] font-semibold mt-0.5">{value}</span>
       </span>
     </div>
   );
@@ -490,7 +491,7 @@ function ContactDetail({ contact, onDelete, onToggleFavorite, onShare }) {
       });
 
       if (result.mode === 'firebase') {
-        const user = getWakwakUser();
+        const user = getVoxManusUser();
         if (user?.phoneNumber) {
           setPresenceInCall(user.phoneNumber, result.code).catch(() => {});
         }
@@ -518,7 +519,7 @@ function ContactDetail({ contact, onDelete, onToggleFavorite, onShare }) {
       )}
       <button
         onClick={() => navigate('/entendant/contacts')}
-        className="flex items-center gap-1 text-[11px] text-[#6366f1] font-bold px-3.5 py-3"
+        className="flex items-center gap-1 text-[11px] text-[#0000B4] font-bold px-3.5 py-3"
       >
         <ChevronLeft size={14} strokeWidth={2.5} />
         Contacts
@@ -527,7 +528,7 @@ function ContactDetail({ contact, onDelete, onToggleFavorite, onShare }) {
       <section className="bg-[#f0f0f8] px-3.5 pt-5 pb-4 flex flex-col items-center text-center">
         <ContactAvatar contact={contact} size="lg" />
         <h1 className="text-[15px] font-extrabold text-[#111111] mt-3">{contact.name}</h1>
-        <p className="text-[10px] text-[#777777] font-semibold mt-1">{contact.role} · {contact.relation}</p>
+        <p className="text-[10px] text-[#5F5F72] font-semibold mt-1">{contact.role} · {contact.relation}</p>
         <div className="flex items-center gap-1.5 mt-2">
           <span className="w-[7px] h-[7px] rounded-full" style={{ backgroundColor: statusColor[liveStatus] || statusColor.offline }} />
           <span className="text-[10px] font-bold" style={{ color: statusColor[liveStatus] || statusColor.offline }}>
@@ -540,7 +541,7 @@ function ContactDetail({ contact, onDelete, onToggleFavorite, onShare }) {
         type="button"
         onClick={handleCallContact}
         disabled={liveStatus === 'busy'}
-        className="w-[calc(100%-28px)] mx-3.5 mt-3 rounded-[12px] bg-[#16a34a] disabled:opacity-50 disabled:cursor-not-allowed p-[11px] text-white text-[12px] font-bold flex items-center justify-center gap-2 active:scale-[0.98]"
+        className="w-[calc(100%-28px)] mx-3.5 mt-3 rounded-[12px] bg-[#2E7D32] disabled:opacity-50 disabled:cursor-not-allowed p-[11px] text-white text-[12px] font-bold flex items-center justify-center gap-2 active:scale-[0.98]"
       >
         <Phone size={14} strokeWidth={2.5} />
         Appeler en LSF
@@ -555,17 +556,17 @@ function ContactDetail({ contact, onDelete, onToggleFavorite, onShare }) {
 
       <section className="grid grid-cols-2 gap-1.5 mx-3.5 mt-[10px]">
         {[
-          { Icon: History, color: '#666666', label: 'Historique', action: () => navigate('/entendant/historique') },
+          { Icon: History, color: '#5F5F72', label: 'Historique', action: () => navigate('/entendant/historique') },
           { Icon: Star, color: '#fbbf24', label: 'Favoris', action: () => onToggleFavorite?.(contact) },
-          { Icon: Share2, color: '#666666', label: 'Partager', action: () => onShare?.(contact) },
-          { Icon: Trash2, color: '#ef4444', label: 'Supprimer', action: () => onDelete?.(contact) },
+          { Icon: Share2, color: '#5F5F72', label: 'Partager', action: () => onShare?.(contact) },
+          { Icon: Trash2, color: '#E53935', label: 'Supprimer', action: () => onDelete?.(contact) },
         ].map(({ Icon, color, label, action }) => (
           <button
             type="button"
             key={label}
             onClick={action}
             className={`bg-[#fafafa] border border-[#e5e5e5] rounded-[10px] p-[10px_8px] flex flex-col items-center gap-1.5 text-[9px] font-bold active:scale-[0.98] ${
-              label === 'Supprimer' ? 'text-[#ef4444]' : 'text-[#666666]'
+              label === 'Supprimer' ? 'text-[#E53935]' : 'text-[#5F5F72]'
             }`}
           >
             <Icon size={18} strokeWidth={2.25} style={{ color }} />
@@ -574,10 +575,10 @@ function ContactDetail({ contact, onDelete, onToggleFavorite, onShare }) {
         ))}
       </section>
 
-      <section className="bg-[#e8f5e9] border border-[#c8e6c9] rounded-[10px] mx-3.5 mt-[10px] mb-3.5 p-[10px_12px] flex items-center gap-3">
+      <section className="bg-[#EAF5EB] border border-[#c8e6c9] rounded-[10px] mx-3.5 mt-[10px] mb-3.5 p-[10px_12px] flex items-center gap-3">
         <div className="flex-1">
           <h2 className="text-[8px] font-bold text-[#2d6a3a] uppercase tracking-[0.6px] mb-1">DERNIER APPEL</h2>
-          <p className="text-[10px] text-[#4ade80] font-bold">{contact.lastCall}</p>
+          <p className="text-[10px] text-[#2E7D32] font-bold">{contact.lastCall}</p>
           <p className="text-[9px] text-[#2d6a3a] font-bold mt-0.5">Durée : {contact.duration}</p>
         </div>
         <PhoneIncoming className="text-[#2d6a3a] shrink-0" size={20} strokeWidth={2.25} />
@@ -780,8 +781,8 @@ function CallScreen({ contact }) {
     const uid = getClientUid('hearing');
     registerNotificationPreference(uid).catch(() => {});
 
-    const wakwakUser = getWakwakUser();
-    const callerName = wakwakUser?.name || 'Personne entendante';
+    const voxmanusUser = getVoxManusUser();
+    const callerName = voxmanusUser?.name || 'Personne entendante';
     const targetPhone = getContactPhone(contact);
 
     const setupCall = async () => {
@@ -799,7 +800,7 @@ function CallScreen({ contact }) {
         callerUid: uid,
         callerName,
         lang: speechLang,
-        callerPhone: normalizePhoneNumber(wakwakUser?.phoneNumber || ''),
+        callerPhone: normalizePhoneNumber(voxmanusUser?.phoneNumber || ''),
         callerRole: 'hearing',
         targetContactId: contact.id,
         targetPhone,
@@ -1062,7 +1063,7 @@ function CallScreen({ contact }) {
     postBc({ type: 'SESSION_END', role: 'hearing', timestamp: new Date().toISOString() });
     endedIntentionallyRef.current = true;
     endRealtimeCall(sessionCode).catch(() => {});
-    const user = getWakwakUser();
+    const user = getVoxManusUser();
     if (user?.phoneNumber) {
       setPresenceAvailable(user.phoneNumber).catch(() => {});
     }
@@ -1093,7 +1094,7 @@ function CallScreen({ contact }) {
     <div className="fixed inset-x-0 top-0 z-[9999] bg-[#f5f5f5] text-[#111111] max-w-md mx-auto flex flex-col overflow-hidden select-none animate-fade-in h-[calc(100dvh-80px)]">
       {calleeJoined && <CalleeJoinedBanner name={calleeJoinedName} />}
       {callToast && (
-        <div className="fixed left-1/2 z-[10001] -translate-x-1/2 bottom-24 rounded-full bg-[#6366f1] text-white text-[12px] font-semibold px-4 py-2 shadow-lg">
+        <div className="fixed left-1/2 z-[10001] -translate-x-1/2 bottom-24 rounded-full bg-[#0000B4] text-white text-[12px] font-semibold px-4 py-2 shadow-lg">
           {callToast}
         </div>
       )}
@@ -1107,25 +1108,25 @@ function CallScreen({ contact }) {
       <section className="bg-[#f5f0ff] border-b border-[#d1c4e9] p-[10px_14px] shrink-0">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <span className="w-[22px] h-[22px] rounded-[6px] bg-[#ede7f6] text-[#a78bfa] flex items-center justify-center">
+            <span className="w-[22px] h-[22px] rounded-[6px] bg-[#EEEEFF] text-[#a78bfa] flex items-center justify-center">
               <Hand size={14} strokeWidth={2.25} />
             </span>
             <span className="text-[8px] font-bold text-[#a78bfa] uppercase tracking-[0.6px]">LSF — GANTS EN DIRECT</span>
           </div>
           <div className="flex items-center gap-1">
-            <span className="w-1 h-1 rounded-full bg-[#6366f1] animate-blink-1" />
-            <span className="w-1 h-1 rounded-full bg-[#6366f1] animate-blink-2" />
-            <span className="w-1 h-1 rounded-full bg-[#6366f1] animate-blink-3" />
+            <span className="w-1 h-1 rounded-full bg-[#0000B4] animate-blink-1" />
+            <span className="w-1 h-1 rounded-full bg-[#0000B4] animate-blink-2" />
+            <span className="w-1 h-1 rounded-full bg-[#0000B4] animate-blink-3" />
           </div>
         </div>
 
         <div className="flex items-center justify-between gap-2 mb-2">
-          <label className="flex items-center gap-2 text-[9px] font-bold text-[#777777]">
+          <label className="flex items-center gap-2 text-[9px] font-bold text-[#5F5F72]">
             Langue
             <select
               value={language}
               onChange={(event) => setLanguage(event.target.value)}
-              className="h-7 rounded-[7px] bg-[#ffffff] border border-[#e5e5e5] px-2 text-[10px] font-bold text-[#333333] outline-none"
+              className="h-7 rounded-[7px] bg-[#ffffff] border border-[#e5e5e5] px-2 text-[10px] font-bold text-[#878787] outline-none"
             >
               <option>Français</option>
               <option>Arabe</option>
@@ -1134,13 +1135,13 @@ function CallScreen({ contact }) {
             </select>
           </label>
           <div className="text-center">
-            <div className="text-[9px] text-[#777777] font-bold leading-none">Code session</div>
-            <div className="text-[20px] text-[#6366f1] font-extrabold leading-tight">{sessionCode}</div>
+            <div className="text-[9px] text-[#5F5F72] font-bold leading-none">Code session</div>
+            <div className="text-[20px] text-[#0000B4] font-extrabold leading-tight">{sessionCode}</div>
           </div>
         </div>
 
-        <div className="bg-[#ede7f6] border border-[#d1c4e9] rounded-[8px] px-3 py-1.5 mb-2 text-[11px] font-semibold text-[#333333] min-h-[28px]">
-          <span className="text-[#818cf8]">🤟 </span>
+        <div className="bg-[#EEEEFF] border border-[#d1c4e9] rounded-[8px] px-3 py-1.5 mb-2 text-[11px] font-semibold text-[#878787] min-h-[28px]">
+          <span className="text-[#0000B4]">🤟 </span>
           {deafSignText}
         </div>
 
@@ -1150,31 +1151,31 @@ function CallScreen({ contact }) {
           }`}
         >
           {!micOn ? (
-            <span className="text-[#555555] text-[11px]">🔇 Micro coupé</span>
+            <span className="text-[#666680555] text-[11px]">🔇 Micro coupé</span>
           ) : previewText ? (
             <>
-              <span className="text-[#333333]">{finalTranscript}</span>
-              {interimTranscript && <span className="text-[#666666] italic"> {interimTranscript}</span>}
+              <span className="text-[#878787]">{finalTranscript}</span>
+              {interimTranscript && <span className="text-[#5F5F72] italic"> {interimTranscript}</span>}
             </>
           ) : (
-            <span className="text-[#666666] italic">Reconnaissance vocale en cours...</span>
+            <span className="text-[#5F5F72] italic">Reconnaissance vocale en cours...</span>
           )}
-          <div className="mt-1 text-[8px] font-bold text-[#777777] uppercase">{speechStatus}</div>
+          <div className="mt-1 text-[8px] font-bold text-[#5F5F72] uppercase">{speechStatus}</div>
         </div>
       </section>
 
       <section className="flex-1 min-h-0 flex flex-col items-center justify-center gap-[10px] px-4">
         <div className="relative w-[160px] h-[160px]">
           <canvas ref={canvasRef} width="160" height="160" className="absolute inset-0 w-[160px] h-[160px]" />
-          <div className="absolute left-1/2 top-1/2 z-[2] -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-[#e8f5e9] border-[3px] border-[#c8e6c9] text-[#4ade80] flex items-center justify-center text-[24px] font-extrabold">
+          <div className="absolute left-1/2 top-1/2 z-[2] -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-[#EAF5EB] border-[3px] border-[#c8e6c9] text-[#2E7D32] flex items-center justify-center text-[24px] font-extrabold">
             {contact.initials}
           </div>
         </div>
 
         <div className="text-center">
           <h1 className="text-[16px] font-extrabold">{contact.name}</h1>
-          <p className="text-[11px] text-[#4ade80] font-bold mt-1">Signe en LSF</p>
-          <p className="text-[13px] text-[#888888] font-black mt-1">{time}</p>
+          <p className="text-[11px] text-[#2E7D32] font-bold mt-1">Signe en LSF</p>
+          <p className="text-[13px] text-[#666680888] font-black mt-1">{time}</p>
         </div>
       </section>
 
@@ -1193,14 +1194,14 @@ function CallScreen({ contact }) {
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm">
           <div className="w-full max-w-[300px] rounded-[18px] border border-[#e5e5e5] bg-white p-5 text-center shadow-2xl">
             <h3 className="text-[14px] font-extrabold text-[#111111]">Sauvegarder la conversation ?</h3>
-            <p className="mt-2 text-[11px] font-semibold leading-relaxed text-[#777777]">
+            <p className="mt-2 text-[11px] font-semibold leading-relaxed text-[#5F5F72]">
               Le transcript, la durée et la date seront ajoutés à l'historique local.
             </p>
             <div className="mt-5 flex gap-3">
               <button
                 type="button"
                 onClick={() => closeCall(false)}
-                className="h-10 flex-1 rounded-[12px] bg-[#e5e5e5] text-[12px] font-extrabold text-[#333333] active:scale-95 flex items-center justify-center gap-1"
+                className="h-10 flex-1 rounded-[12px] bg-[#e5e5e5] text-[12px] font-extrabold text-[#878787] active:scale-95 flex items-center justify-center gap-1"
               >
                 <X size={14} strokeWidth={2.5} />
                 Ignorer
@@ -1208,7 +1209,7 @@ function CallScreen({ contact }) {
               <button
                 type="button"
                 onClick={() => closeCall(true)}
-                className="h-10 flex-1 rounded-[12px] bg-[#16a34a] text-[12px] font-extrabold text-white active:scale-95 flex items-center justify-center gap-1"
+                className="h-10 flex-1 rounded-[12px] bg-[#2E7D32] text-[12px] font-extrabold text-white active:scale-95 flex items-center justify-center gap-1"
               >
                 <Check size={14} strokeWidth={2.5} />
                 Enregistrer
@@ -1227,6 +1228,7 @@ export default function EntendantContacts() {
   const { id } = useParams();
   const [contacts, setContacts] = useState(loadStoredContacts);
   const [toast, setToast] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const contact = getContact(id, contacts);
 
   const persistContacts = (next) => {
@@ -1240,8 +1242,13 @@ export default function EntendantContacts() {
   };
 
   const handleDeleteContact = (c) => {
-    if (!window.confirm(`Supprimer ${c.name} ?`)) return;
-    persistContacts(contacts.filter((x) => x.id !== c.id));
+    setDeleteTarget(c);
+  };
+
+  const confirmDeleteContact = () => {
+    if (!deleteTarget) return;
+    persistContacts(contacts.filter((x) => x.id !== deleteTarget.id));
+    setDeleteTarget(null);
     showToast('Contact supprimé');
     navigate('/entendant/contacts');
   };
@@ -1271,7 +1278,7 @@ export default function EntendantContacts() {
     return (
       <>
         {toast && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[10001] px-4 py-2 rounded-full bg-[#6366f1] text-white text-[11px] font-bold shadow-lg">
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[10001] px-4 py-2 rounded-full bg-[#0000B4] text-white text-[11px] font-bold shadow-lg">
             {toast}
           </div>
         )}
@@ -1280,6 +1287,13 @@ export default function EntendantContacts() {
           onDelete={handleDeleteContact}
           onToggleFavorite={handleToggleFavorite}
           onShare={handleShareContact}
+        />
+        <ConfirmDialog
+          open={Boolean(deleteTarget)}
+          title={`Supprimer ${deleteTarget?.name || 'ce contact'} ?`}
+          message="Ce contact sera retiré définitivement de votre liste VoxManus."
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={confirmDeleteContact}
         />
       </>
     );

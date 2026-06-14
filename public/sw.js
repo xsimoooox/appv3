@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wakwak-v7';
+const CACHE_NAME = 'voxmanus-v7';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 const DEFAULT_API = 'http://localhost:3001';
@@ -74,12 +74,12 @@ self.addEventListener('message', (e) => {
   const role = data.role === 'hearing' ? 'entendant' : 'deaf';
 
   e.waitUntil(
-    self.registration.showNotification(data.title || '📞 Appel entrant — WakWak', {
+    self.registration.showNotification(data.title || '📞 Appel entrant — VoxManus', {
       body: data.body || `${data.callerName || 'Quelqu\'un'} vous appelle`,
       icon: '/icons/icon-192.png',
       badge: '/icons/badge-72.png',
       vibrate: [400, 200, 400, 200, 400, 200, 400],
-      tag: `wakwak-call-${code}`,
+      tag: `voxmanus-call-${code}`,
       renotify: false,
       requireInteraction: true,
       silent: false,
@@ -124,7 +124,7 @@ self.addEventListener('push', (e) => {
     };
 
     e.waitUntil(
-      self.registration.showNotification('📞 Appel entrant — WakWak', options),
+      self.registration.showNotification('📞 Appel entrant — VoxManus', options),
     );
     return;
   }
@@ -132,7 +132,7 @@ self.addEventListener('push', (e) => {
   const code = data.codeSession || data.code || '';
   e.waitUntil(
     self.registration.showNotification(data.title || '📞 Appel entrant', {
-      body: data.body || (code ? `Code : ${code}` : 'Nouvel appel WakWak'),
+      body: data.body || (code ? `Code : ${code}` : 'Nouvel appel VoxManus'),
       data: { codeSession: code, type: data.type || 'incoming_call' },
       actions: code ? [{ action: 'join', title: 'Rejoindre' }] : [],
     }),

@@ -1,8 +1,8 @@
 import { disconnectSocket as disconnectGlobalSocket } from './socket';
-import { clearWakwakUser } from './wakwakUser';
+import { clearVoxManusUser } from './voxmanusUser';
 
 export function performLogout(navigate, disconnectCallSystem) {
-  clearWakwakUser();
+  clearVoxManusUser();
   disconnectGlobalSocket();
   if (typeof disconnectCallSystem === 'function') {
     disconnectCallSystem();

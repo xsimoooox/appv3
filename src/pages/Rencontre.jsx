@@ -907,7 +907,7 @@ export default function Rencontre() {
               <div className="flex-1 bg-white rounded-[16px] shadow-[0_10px_25px_rgba(0,0,0,0.1)] p-[20px] flex flex-col justify-between border border-slate-100">
                 <div className="flex flex-col items-center text-center">
                   <span className="text-[40px] leading-none mb-2 select-none">🖐</span>
-                  <h3 className="text-[18px] font-bold text-[#4F46E5] leading-tight">FRIZITTA</h3>
+                  <h3 className="text-[18px] font-bold text-[#0000B4] leading-tight">FRIZITTA</h3>
                   <span className="text-[12px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Avatar des lettres</span>
                   
                   <div className="w-full border-t border-slate-100 my-3" />
@@ -935,7 +935,7 @@ export default function Rencontre() {
                 <button
                   type="button"
                   onClick={() => chooseAvatar('frizitta')}
-                  className="w-full h-[48px] rounded-[12px] bg-[#4F46E5] text-white font-extrabold text-[12px] shadow-md shadow-indigo-600/10 active:scale-95 transition-all mt-6 cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full h-[48px] rounded-[12px] bg-[#0000B4] text-white font-extrabold text-[12px] shadow-md shadow-indigo-600/10 active:scale-95 transition-all mt-6 cursor-pointer flex items-center justify-center gap-2"
                 >
                   <Sparkles size={18} strokeWidth={2.25} />
                   CHOISIR FRIZITTA
@@ -946,7 +946,7 @@ export default function Rencontre() {
               <div className="flex-1 bg-white rounded-[16px] shadow-[0_10px_25px_rgba(0,0,0,0.1)] p-[20px] flex flex-col justify-between border border-slate-100">
                 <div className="flex flex-col items-center text-center">
                   <span className="text-[40px] leading-none mb-2 select-none">🎬</span>
-                  <h3 className="text-[18px] font-bold text-[#4F46E5] leading-tight">ALEX</h3>
+                  <h3 className="text-[18px] font-bold text-[#0000B4] leading-tight">ALEX</h3>
                   <span className="text-[12px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Avatar des mots</span>
                   
                   <div className="w-full border-t border-slate-100 my-3" />
@@ -974,7 +974,7 @@ export default function Rencontre() {
                 <button
                   type="button"
                   onClick={() => chooseAvatar('alex')}
-                  className="w-full h-[48px] rounded-[12px] bg-[#4F46E5] text-white font-extrabold text-[12px] shadow-md shadow-indigo-600/10 active:scale-95 transition-all mt-6 cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full h-[48px] rounded-[12px] bg-[#0000B4] text-white font-extrabold text-[12px] shadow-md shadow-indigo-600/10 active:scale-95 transition-all mt-6 cursor-pointer flex items-center justify-center gap-2"
                 >
                   <Clapperboard size={18} strokeWidth={2.25} />
                   CHOISIR ALEX
@@ -1042,7 +1042,7 @@ export default function Rencontre() {
               <button
                 type="button"
                 onClick={handlePrintPDF}
-                className="w-full h-12 bg-[#4F46E5] text-white rounded-xl font-extrabold text-xs shadow-md shadow-indigo-600/10 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform cursor-pointer"
+                className="w-full h-12 bg-[#0000B4] text-white rounded-xl font-extrabold text-xs shadow-md shadow-indigo-600/10 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform cursor-pointer"
               >
                 <FileText size={18} strokeWidth={2.25} />
                 Exporter en PDF / Imprimer
@@ -1101,7 +1101,7 @@ export default function Rencontre() {
                   {/* Expired overlay indicator */}
                   {isExpired && (
                     <div className="absolute inset-0 bg-white/70 backdrop-blur-[1px] flex items-center justify-center rounded-[16px]">
-                      <span className="px-4 py-2 bg-rose-50 border border-rose-100 text-[#EF4444] font-extrabold text-[12px] rounded-full uppercase tracking-wider shadow">
+                      <span className="px-4 py-2 bg-rose-50 border border-rose-100 text-[#E53935] font-extrabold text-[12px] rounded-full uppercase tracking-wider shadow">
                         Code Expiré
                       </span>
                     </div>
@@ -1110,7 +1110,7 @@ export default function Rencontre() {
 
                 {/* Expiry Label or Text status */}
                 {isExpired ? (
-                  <div className="text-[20px] font-extrabold text-[#EF4444] tracking-tight uppercase mb-4 mt-2">
+                  <div className="text-[20px] font-extrabold text-[#E53935] tracking-tight uppercase mb-4 mt-2">
                     Code expiré
                   </div>
                 ) : (
@@ -1120,7 +1120,7 @@ export default function Rencontre() {
                     </span>
 
                     {/* Timer MM:SS */}
-                    <div className="text-[32px] font-bold text-[#4F46E5] tracking-tight tabular-nums mb-3">
+                    <div className="text-[32px] font-bold text-[#0000B4] tracking-tight tabular-nums mb-3">
                       {(() => {
                         const m = Math.floor(timerSeconds / 60).toString().padStart(2, '0');
                         const s = (timerSeconds % 60).toString().padStart(2, '0');
@@ -1136,7 +1136,7 @@ export default function Rencontre() {
                     className="h-full rounded-full transition-all duration-1000"
                     style={{ 
                       width: `${(timerSeconds / 1800) * 100}%`,
-                      backgroundColor: timerSeconds < 300 ? '#EF4444' : '#4F46E5'
+                      backgroundColor: timerSeconds < 300 ? '#E53935' : '#0000B4'
                     }}
                   />
                 </div>
@@ -1164,11 +1164,11 @@ export default function Rencontre() {
               {/* Informative text below the card */}
               <div className="my-6 space-y-2 px-3 text-[#6B7280] font-medium leading-relaxed max-w-sm mx-auto">
                 <p className="text-[13px] flex items-start gap-2">
-                  <Lock className="shrink-0 mt-0.5 text-[#4F46E5]" size={16} strokeWidth={2.25} />
+                  <Lock className="shrink-0 mt-0.5 text-[#0000B4]" size={16} strokeWidth={2.25} />
                   <span>Valable 30 minutes maximum</span>
                 </p>
                 <p className="text-[13px] flex items-start gap-2">
-                  <Smartphone className="shrink-0 mt-0.5 text-[#4F46E5]" size={16} strokeWidth={2.25} />
+                  <Smartphone className="shrink-0 mt-0.5 text-[#0000B4]" size={16} strokeWidth={2.25} />
                   <span>L'autre personne scanne le QR ou ouvre le lien (interface entendante)</span>
                 </p>
                 {qrContent && (
@@ -1183,7 +1183,7 @@ export default function Rencontre() {
                 <button
                   type="button"
                   onClick={generateNewQR}
-                  className="w-full h-[52px] bg-[#4F46E5] text-white rounded-[12px] font-extrabold text-[14px] shadow-md shadow-indigo-600/20 active:scale-[0.98] transition-transform cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full h-[52px] bg-[#0000B4] text-white rounded-[12px] font-extrabold text-[14px] shadow-md shadow-indigo-600/20 active:scale-[0.98] transition-transform cursor-pointer flex items-center justify-center gap-2"
                 >
                   <RefreshCw size={20} strokeWidth={2.25} />
                   Générer un nouveau code
@@ -1193,7 +1193,7 @@ export default function Rencontre() {
                   type="button"
                   onClick={handleShareLink}
                   disabled={isExpired}
-                  className="w-full h-[52px] bg-white border-2 border-[#4F46E5] text-[#4F46E5] rounded-[12px] font-extrabold text-[14px] active:scale-[0.98] transition-transform disabled:opacity-50 disabled:pointer-events-none cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full h-[52px] bg-white border-2 border-[#0000B4] text-[#0000B4] rounded-[12px] font-extrabold text-[14px] active:scale-[0.98] transition-transform disabled:opacity-50 disabled:pointer-events-none cursor-pointer flex items-center justify-center gap-2"
                 >
                   <Share2 size={20} strokeWidth={2.25} />
                   Partager le lien
@@ -1210,7 +1210,7 @@ export default function Rencontre() {
                 title="Personne entendante"
                 subtitle={
                   <>
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a] animate-pulse" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#2E7D32] animate-pulse" />
                     Rencontre en direct
                   </>
                 }
@@ -1237,7 +1237,7 @@ export default function Rencontre() {
                     )}
                   </span>
                   {gantActif && (
-                    <span className="text-[10px] text-[#16a34a] font-bold whitespace-nowrap shrink-0 select-none">
+                    <span className="text-[10px] text-[#2E7D32] font-bold whitespace-nowrap shrink-0 select-none">
                       ● signing<span className="animate-blink-1">.</span><span className="animate-blink-2">.</span><span className="animate-blink-3">.</span>
                     </span>
                   )}
@@ -1351,7 +1351,7 @@ export default function Rencontre() {
               <button
                 type="button"
                 onClick={confirmEndSession}
-                className="flex-1 h-9 rounded-lg bg-[#EF4444] hover:bg-red-650 text-white font-extrabold text-xs active:scale-95 transition-transform cursor-pointer flex items-center justify-center gap-1.5"
+                className="flex-1 h-9 rounded-lg bg-[#E53935] hover:bg-red-650 text-white font-extrabold text-xs active:scale-95 transition-transform cursor-pointer flex items-center justify-center gap-1.5"
               >
                 <Check size={16} strokeWidth={2.5} />
                 Terminer

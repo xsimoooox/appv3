@@ -26,7 +26,7 @@ const vapidPublic = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
 
 if (vapidPublic && vapidPrivate) {
-  webpush.setVapidDetails('mailto:contact@wakwak.app', vapidPublic, vapidPrivate);
+  webpush.setVapidDetails('mailto:contact@voxmanus.app', vapidPublic, vapidPrivate);
 }
 
 /** userId (MongoDB string) → socketId */
@@ -427,7 +427,7 @@ io.on('connection', (socket) => {
     const subscription = pushSubscriptions.get(cleanTarget);
     if (subscription && vapidPublic && vapidPrivate) {
       const apiBase =
-        process.env.WAKWAK_API_URL || `http://localhost:${process.env.PORT || 3001}`;
+        process.env.VOXMANUS_API_URL || `http://localhost:${process.env.PORT || 3001}`;
       const payload = JSON.stringify({
         type: 'incoming_call',
         callerPhone: cleanCaller,
@@ -647,7 +647,7 @@ userRepo
   .initRepository()
   .then((mode) => {
     server.listen(PORT, () => {
-      console.log(`WakWak server running on port ${PORT}`);
+      console.log(`VoxManus server running on port ${PORT}`);
       console.log(`[API] Inscription prête (mode: ${mode})`);
     });
   })

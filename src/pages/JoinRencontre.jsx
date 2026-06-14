@@ -32,7 +32,7 @@ export default function JoinRencontre() {
           return;
         }
 
-        localStorage.setItem('wakwak_profile', 'entendant');
+        localStorage.setItem('voxmanus_profile', 'entendant');
         await joinRencontreSession(sessionId, getClientUid('hearing'));
 
         if (!cancelled) {
@@ -56,7 +56,7 @@ export default function JoinRencontre() {
         <button
           type="button"
           onClick={() => navigate('/entendant/accueil')}
-          className="mt-4 h-10 px-4 rounded-xl bg-[#6366f1] text-white text-xs font-extrabold"
+          className="mt-4 h-10 px-4 rounded-xl bg-[#0000B4] text-white text-xs font-extrabold"
         >
           Retour
         </button>
@@ -65,7 +65,7 @@ export default function JoinRencontre() {
   }
 
   return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3 text-[#6366f1]">
+    <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3 text-[#0000B4]">
       <Loader2 className="animate-spin" size={32} />
       <p className="text-sm font-bold text-slate-600">Connexion à la rencontre…</p>
     </div>

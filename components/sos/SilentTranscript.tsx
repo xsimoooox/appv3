@@ -198,7 +198,7 @@ export function SilentTranscript() {
                 Flux LSF Simulateur Actif
               </Text>
               <Text className="text-[12px] text-center text-slate-400 max-w-[80%] font-medium">
-                Avatar SignBridge traduisant en temps réel le message.
+                Avatar VoxManus traduisant en temps réel le message.
               </Text>
             </View>
 

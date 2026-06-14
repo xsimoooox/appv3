@@ -19,10 +19,10 @@ import {
   markInviteNotified,
   wasInviteNotified,
 } from '../lib/callInvite';
-import { getWakwakUser } from '../lib/wakwakUser';
+import { getVoxManusUser } from '../lib/voxmanusUser';
 import { normalizePhoneNumber } from '../lib/phoneUtils';
 
-const DISMISSED_KEY = 'wakwak_dismissed_calls';
+const DISMISSED_KEY = 'voxmanus_dismissed_calls';
 const POLL_INTERVAL_MS = 1000;
 
 function loadDismissed() {
@@ -40,7 +40,7 @@ function dismissCode(code) {
 }
 
 function resolveMyPhone() {
-  const user = getWakwakUser();
+  const user = getVoxManusUser();
   return normalizePhoneNumber(
     user?.phoneNumber || localStorage.getItem('userPhone') || ''
   );
@@ -57,7 +57,7 @@ export function useGlobalCallListener({ onAcceptCall, onRejectCall } = {}) {
   const ringingRef = useRef(null);
   const dismissedRef = useRef(loadDismissed());
 
-  const user = getWakwakUser();
+  const user = getVoxManusUser();
   const myUidRef = useRef(
     user?.id || getClientUid(user?.role === 'hearing' ? 'hearing' : 'deaf'),
   );
@@ -70,7 +70,7 @@ export function useGlobalCallListener({ onAcceptCall, onRejectCall } = {}) {
       if (phone) {
         setMyPhone(phone);
         // Update role and uid refs too
-        const u = getWakwakUser();
+        const u = getVoxManusUser();
         if (u?.id) myUidRef.current = u.id;
         if (u?.role) myRoleRef.current = u.role === 'hearing' ? 'hearing' : 'deaf';
       }
@@ -200,7 +200,7 @@ export function useGlobalCallListener({ onAcceptCall, onRejectCall } = {}) {
     stopIncomingRingtone();
 
     const uid = getClientUid(myRoleRef.current === 'hearing' ? 'hearing' : 'deaf');
-    const calleeName = getWakwakUser()?.name || '';
+    const calleeName = getVoxManusUser()?.name || '';
     storeSessionCode(call.code);
     acknowledgeRealtimeCall(call.code, calleeName).catch(() => {});
 

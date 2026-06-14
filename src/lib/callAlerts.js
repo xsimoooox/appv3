@@ -69,14 +69,14 @@ export async function notifyIncomingCall({
     playIncomingRingtone();
   }
 
-  const title = '📞 Appel entrant — WakWak';
+  const title = '📞 Appel entrant — VoxManus';
   const body = `${callerName || 'Quelqu\'un'} vous appelle · Code ${code}`;
 
   const notifyOptions = {
     body,
     icon: '/icons/icon-192.png',
     badge: '/icons/badge-72.png',
-    tag: `wakwak-call-${code}`,
+    tag: `voxmanus-call-${code}`,
     renotify: false,
     requireInteraction: true,
     vibrate: [400, 200, 400, 200, 400],

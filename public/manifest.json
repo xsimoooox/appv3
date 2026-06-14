@@ -1,6 +1,6 @@
 {
-  "short_name": "WakWak",
-  "name": "WakWak Traducteur LSF",
+  "short_name": "VoxManus",
+  "name": "VoxManus Traducteur LSF",
   "icons": [
     {
       "src": "icon-192.png",
@@ -14,8 +14,8 @@
     }
   ],
   "start_url": "/",
-  "background_color": "#F8FAFC",
-  "theme_color": "#4F46E5",
+  "background_color": "#F0F0F0",
+  "theme_color": "#0000B4",
   "display": "standalone",
   "orientation": "portrait"
 }

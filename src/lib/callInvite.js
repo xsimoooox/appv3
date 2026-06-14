@@ -24,7 +24,7 @@ export function isInviteValid(invite) {
   return true;
 }
 
-const NOTIFIED_PREFIX = 'wakwak_notified_invite_';
+const NOTIFIED_PREFIX = 'voxmanus_notified_invite_';
 
 export function wasInviteNotified(code) {
   try {
@@ -45,7 +45,7 @@ export function markInviteNotified(code) {
 export function findContactIdForIncoming(role, callerPhone, fallbackId) {
   try {
     if (role === 'hearing') {
-      const raw = localStorage.getItem('wakwak_contacts');
+      const raw = localStorage.getItem('voxmanus_contacts');
       if (raw) {
         const list = JSON.parse(raw);
         const match = list.find(

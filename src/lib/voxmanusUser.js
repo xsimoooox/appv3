@@ -1,14 +1,14 @@
 import { normalizePhoneNumber } from './phoneUtils';
 import { setAuthToken } from './api';
 
-export const WAKWAK_USER_KEY = 'wakwak_user';
-export const WAKWAK_USER_CHANGED_EVENT = 'wakwak-user-changed';
+export const VOXMANUS_USER_KEY = 'voxmanus_user';
+export const VOXMANUS_USER_CHANGED_EVENT = 'voxmanus-user-changed';
 
 function notifyUserChanged(user) {
-  window.dispatchEvent(new CustomEvent(WAKWAK_USER_CHANGED_EVENT, { detail: user }));
+  window.dispatchEvent(new CustomEvent(VOXMANUS_USER_CHANGED_EVENT, { detail: user }));
 }
 
-export function isValidWakwakUser(user) {
+export function isValidVoxManusUser(user) {
   if (!user || typeof user !== 'object') return false;
   const name = String(user.name || '').trim();
   const phone = normalizePhoneNumber(user.phoneNumber || '');
@@ -23,12 +23,12 @@ export function isValidWakwakUser(user) {
   );
 }
 
-export function getWakwakUser() {
+export function getVoxManusUser() {
   try {
-    const raw = localStorage.getItem(WAKWAK_USER_KEY);
+    const raw = localStorage.getItem(VOXMANUS_USER_KEY);
     if (!raw) return null;
     const user = JSON.parse(raw);
-    if (!isValidWakwakUser(user)) return null;
+    if (!isValidVoxManusUser(user)) return null;
     return {
       ...user,
       id: String(user.id),
@@ -39,7 +39,7 @@ export function getWakwakUser() {
   }
 }
 
-export function saveWakwakUser(user) {
+export function saveVoxManusUser(user) {
   const payload = {
     id: String(user.id),
     name: user.name.trim(),
@@ -49,9 +49,9 @@ export function saveWakwakUser(user) {
     avatar: user.avatar ?? null,
     isOnline: user.isOnline ?? false,
   };
-  localStorage.setItem(WAKWAK_USER_KEY, JSON.stringify(payload));
+  localStorage.setItem(VOXMANUS_USER_KEY, JSON.stringify(payload));
   localStorage.setItem('user', JSON.stringify(payload));
-  localStorage.setItem('wakwak_profile', payload.role === 'hearing' ? 'entendant' : 'sourd');
+  localStorage.setItem('voxmanus_profile', payload.role === 'hearing' ? 'entendant' : 'sourd');
   localStorage.setItem('userPhone', payload.phoneNumber);
   if (user.token) {
     setAuthToken(user.token);
@@ -60,13 +60,13 @@ export function saveWakwakUser(user) {
   return payload;
 }
 
-export function clearWakwakUser() {
-  localStorage.removeItem(WAKWAK_USER_KEY);
+export function clearVoxManusUser() {
+  localStorage.removeItem(VOXMANUS_USER_KEY);
   localStorage.removeItem('user');
-  localStorage.removeItem('wakwak_profile');
+  localStorage.removeItem('voxmanus_profile');
   localStorage.removeItem('userPhone');
   localStorage.removeItem('token');
-  localStorage.removeItem('wakwak_token');
+  localStorage.removeItem('voxmanus_token');
   notifyUserChanged(null);
 }
 

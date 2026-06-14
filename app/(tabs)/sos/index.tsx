@@ -76,12 +76,12 @@ export default function SosScreen() {
       {/* 72px GLASS HEADER */}
       <BlurView intensity={80} tint="dark" style={styles.header} className="flex-row items-center justify-between px-4 border-b border-white/5 relative z-50">
         <View className="flex-row items-center gap-2">
-          {/* SignBridge Inline Logo (SVG Concept as Shield Hand) */}
+          {/* VoxManus Inline Logo (SVG Concept as Shield Hand) */}
           <View className="w-8 h-8 rounded-lg bg-indigo-600 items-center justify-center border border-indigo-400/20">
             <Feather name="activity" size={16} color="#FFF" />
           </View>
           <View>
-            <Text className="text-[14px] font-bold text-white tracking-wide">SignBridge</Text>
+            <Text className="text-[14px] font-bold text-white tracking-wide">VoxManus</Text>
             <Text className="text-[10px] font-semibold text-indigo-400 mt-0.5">Mode Silencieux SOS</Text>
           </View>
         </View>
@@ -95,7 +95,7 @@ export default function SosScreen() {
         <View className="flex-row items-center gap-2">
           {batteryLevel < 20 && (
             <View className="flex-row items-center gap-1 bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 rounded">
-              <Feather name="battery" size={10} color="#EF4444" />
+              <Feather name="battery" size={10} color="#E53935" />
               <Text className="text-[9px] font-extrabold text-rose-400">{batteryLevel}%</Text>
             </View>
           )}

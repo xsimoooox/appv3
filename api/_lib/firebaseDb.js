@@ -2,8 +2,8 @@ const DATABASE_URL =
   process.env.FIREBASE_DATABASE_URL || 'https://sign-langage-default-rtdb.firebaseio.com';
 const DATABASE_AUTH_TOKEN = process.env.FIREBASE_DATABASE_AUTH_TOKEN || '';
 
-const USERS_ROOT = 'wakwak_auth/users';
-const PHONE_INDEX = 'wakwak_auth/phone_index';
+const USERS_ROOT = 'voxmanus_auth/users';
+const PHONE_INDEX = 'voxmanus_auth/phone_index';
 
 function phoneKey(phoneNumber) {
   return encodeURIComponent(phoneNumber);

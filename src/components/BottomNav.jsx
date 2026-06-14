@@ -1,4 +1,3 @@
-import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Users, QrCode, Shield, Clock, Settings } from 'lucide-react';
 
@@ -26,8 +25,8 @@ export default function BottomNav() {
   const navItems = isHearing ? hearingNavItems : deafNavItems;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-[65px] bg-[#FFFFFF] border-t border-slate-100 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] z-[9999] flex items-center justify-between px-1 select-none">
-      <div className={`w-full grid ${isHearing ? 'grid-cols-5' : 'grid-cols-6'} h-full`}>
+    <nav className="vox-bottom-nav fixed bottom-0 left-0 right-0 h-[65px] bg-[#0000B4] border-t border-[#000096] shadow-[0_-4px_16px_rgba(0,0,150,0.12)] z-[9999] flex items-center justify-between px-1 select-none">
+      <div className={`w-full max-w-5xl mx-auto grid ${isHearing ? 'grid-cols-5' : 'grid-cols-6'} h-full`}>
         {navItems.map((item) => {
           const Icon = item.icon;
           return (
@@ -37,8 +36,8 @@ export default function BottomNav() {
               className={({ isActive }) =>
                 `flex flex-col items-center justify-center h-full transition-all duration-150 ${
                   isActive
-                    ? `${isHearing ? 'text-[#6366f1]' : 'text-[#4F46E5]'} scale-105 font-medium`
-                    : 'text-[#9CA3AF] hover:text-slate-600'
+                    ? 'text-white scale-105 font-semibold'
+                    : 'text-white/70 hover:text-white'
                 }`
               }
             >
@@ -48,7 +47,7 @@ export default function BottomNav() {
                     size={22}
                     className={`transition-all duration-150 ${
                       isActive
-                        ? `scale-110 stroke-[2.25px] ${isHearing ? 'drop-shadow-[0_1px_2px_rgba(99,102,241,0.18)]' : 'drop-shadow-[0_1px_2px_rgba(79,70,229,0.15)]'}`
+                        ? 'scale-110 stroke-[2.25px] drop-shadow-[0_1px_2px_rgba(0,0,0,0.18)]'
                         : 'stroke-[1.75px]'
                     }`}
                   />

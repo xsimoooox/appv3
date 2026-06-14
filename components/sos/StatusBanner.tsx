@@ -134,7 +134,7 @@ export function StatusBanner() {
         </View>
         {isLowBattery && (
           <View className="bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20 flex-row items-center gap-1">
-            <Feather name="battery-charging" size={12} color="#EF4444" />
+            <Feather name="battery-charging" size={12} color="#E53935" />
             <Text className="text-[10px] font-bold text-rose-500">Faible</Text>
           </View>
         )}

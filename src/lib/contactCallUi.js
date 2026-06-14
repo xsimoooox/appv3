@@ -12,7 +12,7 @@ export function getContactCallState(realtimeStatus) {
   return {
     disabled: false,
     buttonClass:
-      'w-7 h-7 rounded-full flex items-center justify-center text-white active:scale-90 transition-transform cursor-pointer bg-[#16a34a] hover:bg-emerald-600',
+      'w-7 h-7 rounded-full flex items-center justify-center text-white active:scale-90 transition-transform cursor-pointer bg-[#2E7D32] hover:bg-emerald-600',
     useLucidePhone: true,
   };
 }
@@ -27,7 +27,7 @@ export function getEntendantCallState(realtimeStatus) {
   }
   return {
     disabled: false,
-    className: 'w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-[#16a34a] text-white',
+    className: 'w-6 h-6 rounded-full flex items-center justify-center shrink-0 bg-[#2E7D32] text-white',
   };
 }
 

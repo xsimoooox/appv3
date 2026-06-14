@@ -18,11 +18,11 @@ const User = mongoose.models.User || mongoose.model('User', userSchema);
 
 const globalForMongoose = globalThis;
 
-if (!globalForMongoose._wakwakMongo) {
-  globalForMongoose._wakwakMongo = { conn: null, promise: null };
+if (!globalForMongoose._voxmanusMongo) {
+  globalForMongoose._voxmanusMongo = { conn: null, promise: null };
 }
 
-const cached = globalForMongoose._wakwakMongo;
+const cached = globalForMongoose._voxmanusMongo;
 
 export async function connectMongo() {
   const uri = process.env.MONGODB_URI;

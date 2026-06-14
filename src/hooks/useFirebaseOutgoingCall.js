@@ -7,7 +7,7 @@ import {
   listenFirebaseValue,
 } from '../lib/firebaseRealtime';
 import { setPresenceAvailable } from '../lib/presenceFirebase';
-import { getWakwakUser } from '../lib/wakwakUser';
+import { getVoxManusUser } from '../lib/voxmanusUser';
 import { playJoinedChime } from '../lib/callAlerts';
 
 const OUTGOING_TIMEOUT_MS = 30000;
@@ -46,7 +46,7 @@ export function useFirebaseOutgoingCall({ onToast, onStartCall, onStopCall } = {
       await clearCallInvite(current.targetPhone, current.code).catch(() => {});
     }
 
-    const user = getWakwakUser();
+    const user = getVoxManusUser();
     if (user?.phoneNumber) {
       await setPresenceAvailable(user.phoneNumber).catch(() => {});
     }

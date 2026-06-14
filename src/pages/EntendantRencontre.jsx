@@ -39,7 +39,7 @@ function RencontreToast({ message, type, onDone }) {
     return () => clearTimeout(t);
   }, [onDone]);
 
-  const bg = type === 'success' ? '#16a34a' : type === 'error' ? '#ef4444' : '#6366f1';
+  const bg = type === 'success' ? '#2E7D32' : type === 'error' ? '#E53935' : '#0000B4';
 
   return (
     <div
@@ -188,7 +188,7 @@ export default function EntendantRencontre() {
     const token = parseSessionIdFromJoinInput(decodedText);
     const isJoinLink = decodedText.includes('/join/') || token;
     if (!isJoinLink || !token) {
-      setScanError('QR code non reconnu. Scannez un QR WakWak.');
+      setScanError('QR code non reconnu. Scannez un QR VoxManus.');
       return;
     }
     scanHandledRef.current = true;
@@ -506,7 +506,7 @@ export default function EntendantRencontre() {
 
   const detectSessionToken = (value) => {
     const token = parseSessionIdFromJoinInput(value);
-    setLinkBorder(token ? '#16a34a' : '#e0e0e0');
+    setLinkBorder(token ? '#2E7D32' : '#e0e0e0');
   };
 
   /** Accès direct : rejoint le lien saisi ou mode simulation locale. */
@@ -742,23 +742,23 @@ export default function EntendantRencontre() {
         >
           <div className="text-center mb-4 px-4">
             <p className="text-[13px] font-bold text-[#111111] m-0 mb-1">Rejoindre une session</p>
-            <p className="text-[10px] text-[#777777] font-semibold m-0">Scannez le QR code de votre interlocuteur sourd</p>
+            <p className="text-[10px] text-[#5F5F72] font-semibold m-0">Scannez le QR code de votre interlocuteur sourd</p>
           </div>
 
           <div className="bg-[#ffffff] border border-[#e5e5e5] rounded-[16px] p-5 mx-3.5 mb-3 shadow-[0_2px_12px_rgba(0,0,0,0.04)]">
             <div
               id="qr-camera-zone"
-              className="relative w-[240px] h-[240px] mx-auto mb-3 bg-white rounded-[12px] border-2 border-[#6366f1] flex items-center justify-center overflow-hidden"
+              className="relative w-[240px] h-[240px] mx-auto mb-3 bg-white rounded-[12px] border-2 border-[#0000B4] flex items-center justify-center overflow-hidden"
             >
-              <div className="rencontre-corner-tl absolute top-2 left-2 w-5 h-5 border-t-[3px] border-l-[3px] border-[#6366f1] rounded-tl-[3px]" />
-              <div className="rencontre-corner-tr absolute top-2 right-2 w-5 h-5 border-t-[3px] border-r-[3px] border-[#6366f1] rounded-tr-[3px]" />
-              <div className="rencontre-corner-bl absolute bottom-2 left-2 w-5 h-5 border-b-[3px] border-l-[3px] border-[#6366f1] rounded-bl-[3px]" />
-              <div className="rencontre-corner-br absolute bottom-2 right-2 w-5 h-5 border-b-[3px] border-r-[3px] border-[#6366f1] rounded-br-[3px]" />
+              <div className="rencontre-corner-tl absolute top-2 left-2 w-5 h-5 border-t-[3px] border-l-[3px] border-[#0000B4] rounded-tl-[3px]" />
+              <div className="rencontre-corner-tr absolute top-2 right-2 w-5 h-5 border-t-[3px] border-r-[3px] border-[#0000B4] rounded-tr-[3px]" />
+              <div className="rencontre-corner-bl absolute bottom-2 left-2 w-5 h-5 border-b-[3px] border-l-[3px] border-[#0000B4] rounded-bl-[3px]" />
+              <div className="rencontre-corner-br absolute bottom-2 right-2 w-5 h-5 border-b-[3px] border-r-[3px] border-[#0000B4] rounded-br-[3px]" />
 
               {!cameraReady && !scanError && (
                 <div id="qr-placeholder" className="absolute inset-0 z-[1] flex flex-col items-center justify-center text-center bg-white/80">
-                  <i className="ti ti-camera text-[40px] text-[#6366f1]" />
-                  <p className="text-[10px] text-[#888888] font-semibold mt-2 mb-0 px-4">
+                  <i className="ti ti-camera text-[40px] text-[#0000B4]" />
+                  <p className="text-[10px] text-[#666680888] font-semibold mt-2 mb-0 px-4">
                     Démarrage de la caméra arrière…
                   </p>
                 </div>
@@ -770,12 +770,12 @@ export default function EntendantRencontre() {
             </div>
 
             {cameraReady && (
-              <p className="text-[10px] text-[#16a34a] font-bold text-center mb-2">
+              <p className="text-[10px] text-[#2E7D32] font-bold text-center mb-2">
                 Caméra active — Pointez vers le QR code
               </p>
             )}
             {scanError && (
-              <p className="text-[10px] text-[#ef4444] font-bold text-center mb-2">{scanError}</p>
+              <p className="text-[10px] text-[#E53935] font-bold text-center mb-2">{scanError}</p>
             )}
 
             {isScanning ? (
@@ -783,7 +783,7 @@ export default function EntendantRencontre() {
                 id="btn-stop-scan"
                 type="button"
                 onClick={stopQRScan}
-                className="w-full h-9 bg-white border border-[#e0e0e0] rounded-lg text-[#666666] text-[12px] font-semibold cursor-pointer mb-2"
+                className="w-full h-9 bg-white border border-[#e0e0e0] rounded-lg text-[#5F5F72] text-[12px] font-semibold cursor-pointer mb-2"
               >
                 <i className="ti ti-x mr-1.5" />
                 Arrêter le scan
@@ -793,7 +793,7 @@ export default function EntendantRencontre() {
                 id="btn-start-scan"
                 type="button"
                 onClick={startQRScan}
-                className="w-full h-9 bg-white border border-[#6366f1] rounded-lg text-[#6366f1] text-[12px] font-bold cursor-pointer mb-2"
+                className="w-full h-9 bg-white border border-[#0000B4] rounded-lg text-[#0000B4] text-[12px] font-bold cursor-pointer mb-2"
               >
                 <i className="ti ti-camera mr-1.5" />
                 Activer le scanner
@@ -803,17 +803,17 @@ export default function EntendantRencontre() {
             <button
               type="button"
               onClick={handleSimuler}
-              className="w-full h-10 bg-white hover:bg-[#fafafa] border border-[#e0e0e0] rounded-[10px] text-[#6366f1] text-[12px] font-extrabold cursor-pointer mb-4 flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+              className="w-full h-10 bg-white hover:bg-[#fafafa] border border-[#e0e0e0] rounded-[10px] text-[#0000B4] text-[12px] font-extrabold cursor-pointer mb-4 flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
             >
               <i className="ti ti-plug text-[15px]" />
               Simuler
             </button>
-            <p className="text-[9px] text-[#888888] font-semibold text-center m-0 mb-4 leading-snug px-1">
+            <p className="text-[9px] text-[#666680888] font-semibold text-center m-0 mb-4 leading-snug px-1">
               Accès direct sans scan — utilise le lien ci-dessous s&apos;il est renseigné, sinon mode test local.
             </p>
 
             <div className="h-px bg-[#e5e5e5] mb-3" />
-            <p className="text-[10px] text-[#777777] font-semibold text-center m-0 mb-2.5">ou entrez le lien manuellement</p>
+            <p className="text-[10px] text-[#5F5F72] font-semibold text-center m-0 mb-2.5">ou entrez le lien manuellement</p>
 
             <input
               id="input-session-link"
@@ -824,21 +824,21 @@ export default function EntendantRencontre() {
                 detectSessionToken(e.target.value);
               }}
               placeholder="https://…/join/xxxxxxxx"
-              className="w-full box-border bg-white border rounded-lg py-2.5 px-3 text-[11px] text-[#333333] font-semibold outline-none focus:border-[#6366f1]"
+              className="w-full box-border bg-white border rounded-lg py-2.5 px-3 text-[11px] text-[#878787] font-semibold outline-none focus:border-[#0000B4]"
               style={{ borderColor: linkBorder }}
             />
 
             <button
               type="button"
               onClick={rejoindreSession}
-              className="w-full h-11 bg-[#16a34a] border-none rounded-[10px] text-white text-[12px] font-bold cursor-pointer mt-3"
+              className="w-full h-11 bg-[#2E7D32] border-none rounded-[10px] text-white text-[12px] font-bold cursor-pointer mt-3"
             >
               Rejoindre la session
             </button>
           </div>
 
-          <p className="text-[11px] text-[#777777] font-semibold text-center m-0 mb-1">Connexion sécurisée et chiffrée</p>
-          <p className="text-[11px] text-[#777777] font-semibold text-center m-0 mb-4">Aucune application requise côté sourd</p>
+          <p className="text-[11px] text-[#5F5F72] font-semibold text-center m-0 mb-1">Connexion sécurisée et chiffrée</p>
+          <p className="text-[11px] text-[#5F5F72] font-semibold text-center m-0 mb-4">Aucune application requise côté sourd</p>
         </div>
       )}
 
@@ -854,7 +854,7 @@ export default function EntendantRencontre() {
             title={partnerName}
             subtitle={
               <>
-                <span className="w-1.5 h-1.5 rounded-full bg-[#16a34a] animate-pulse" />
+                <span className="w-1.5 h-1.5 rounded-full bg-[#2E7D32] animate-pulse" />
                 Session en direct
               </>
             }
@@ -903,12 +903,12 @@ export default function EntendantRencontre() {
                 id="zone-parole-entendant"
                 className={`relative w-full max-w-[min(100%,340px)] min-h-[120px] rounded-[20px_4px_20px_20px] border shadow-[0_2px_8px_rgba(22,163,74,0.08)] px-4 py-4 pl-12 ${
                   isMicroOn
-                    ? 'bg-[#c8f5d4] border-[#86efac] ring-2 ring-[#16a34a]/20'
+                    ? 'bg-[#c8f5d4] border-[#86efac] ring-2 ring-[#2E7D32]/20'
                     : 'bg-[#dcf8c6] border-[#bbf7d0]'
                 }`}
               >
-                <div className="absolute -right-1 top-3 w-9 h-9 rounded-full bg-[#e8f5e9] border-2 border-[#dcf8c6] flex items-center justify-center shadow-sm">
-                  <Mic size={16} strokeWidth={2.25} className="text-[#16a34a]" />
+                <div className="absolute -right-1 top-3 w-9 h-9 rounded-full bg-[#EAF5EB] border-2 border-[#dcf8c6] flex items-center justify-center shadow-sm">
+                  <Mic size={16} strokeWidth={2.25} className="text-[#2E7D32]" />
                 </div>
                 <p className="text-[10px] font-bold text-[#15803d] uppercase tracking-wide m-0 mb-2 pr-7 text-right">
                   Vous
@@ -919,7 +919,7 @@ export default function EntendantRencontre() {
                     zoneCText
                       ? 'text-[#14532d]'
                       : isMicroOn
-                        ? 'text-[#16a34a]'
+                        ? 'text-[#2E7D32]'
                         : 'text-[#86efac] italic'
                   }`}
                 >
@@ -943,7 +943,7 @@ export default function EntendantRencontre() {
               id="zone-ecriture"
               className="shrink-0 border-t border-[#e5e5e5] bg-[#ffffff] p-3 flex flex-col gap-2"
             >
-              <p className="text-[10px] font-bold text-[#777777] m-0 uppercase tracking-wide">
+              <p className="text-[10px] font-bold text-[#5F5F72] m-0 uppercase tracking-wide">
                 Message écrit
               </p>
               <textarea
@@ -951,12 +951,12 @@ export default function EntendantRencontre() {
                 onChange={(e) => setTypedMessage(e.target.value)}
                 placeholder="Saisissez votre message…"
                 rows={3}
-                className="w-full resize-none rounded-[10px] border border-[#e0e0e0] bg-white px-3 py-2 text-[12px] font-semibold text-[#333333] outline-none focus:border-[#6366f1]"
+                className="w-full resize-none rounded-[10px] border border-[#e0e0e0] bg-white px-3 py-2 text-[12px] font-semibold text-[#878787] outline-none focus:border-[#0000B4]"
               />
               <button
                 type="button"
                 onClick={sendTypedMessage}
-                className="h-10 w-full rounded-[10px] bg-[#16a34a] text-white text-[12px] font-bold active:scale-[0.98]"
+                className="h-10 w-full rounded-[10px] bg-[#2E7D32] text-white text-[12px] font-bold active:scale-[0.98]"
               >
                 Envoyer à l&apos;interlocuteur
               </button>
@@ -967,18 +967,18 @@ export default function EntendantRencontre() {
             <button
               type="button"
               onClick={simulerGantsAnglais}
-              className="w-full h-9 rounded-[10px] border border-[#c4b5fd] bg-[#f5f0ff] text-[#6366f1] text-[11px] font-extrabold active:scale-[0.98] flex items-center justify-center gap-2"
+              className="w-full h-9 rounded-[10px] border border-[#c4b5fd] bg-[#f5f0ff] text-[#0000B4] text-[11px] font-extrabold active:scale-[0.98] flex items-center justify-center gap-2"
             >
               <Hand size={14} strokeWidth={2.25} />
               Simuler signes gants (EN)
             </button>
             {conversationTurn !== 'hearing' && (
-              <p className="text-[9px] text-center text-[#16a34a] font-bold mt-1 m-0">
+              <p className="text-[9px] text-center text-[#2E7D32] font-bold mt-1 m-0">
                 ⏳ Écoutez / visualisez — votre tour après la réponse sourde
               </p>
             )}
             {conversationTurn === 'hearing' && (
-              <p className="text-[9px] text-center text-[#6366f1] font-bold mt-1 m-0">
+              <p className="text-[9px] text-center text-[#0000B4] font-bold mt-1 m-0">
                 🎙️ À vous de parler — micro puis relâchez pour envoyer
               </p>
             )}

@@ -25,7 +25,7 @@ import {
   storeSessionCode,
 } from '../lib/firebaseRealtime';
 import { normalizePhoneNumber } from '../lib/phoneUtils';
-import { getWakwakUser, WAKWAK_USER_CHANGED_EVENT } from '../lib/wakwakUser';
+import { getVoxManusUser, VOXMANUS_USER_CHANGED_EVENT } from '../lib/voxmanusUser';
 
 const CallSystemContext = createContext(null);
 
@@ -38,37 +38,37 @@ export function CallSystemProvider({ children }) {
   const pushAcceptHandledRef = useRef(false);
   const firebaseAcceptHandledRef = useRef(null);
 
-  const [wakwakUser, setWakwakUser] = React.useState(
-    () => (typeof window !== 'undefined' ? getWakwakUser() : null),
+  const [voxmanusUser, setVoxManusUser] = React.useState(
+    () => (typeof window !== 'undefined' ? getVoxManusUser() : null),
   );
 
   useEffect(() => {
-    const syncUser = () => setWakwakUser(getWakwakUser());
-    window.addEventListener(WAKWAK_USER_CHANGED_EVENT, syncUser);
+    const syncUser = () => setVoxManusUser(getVoxManusUser());
+    window.addEventListener(VOXMANUS_USER_CHANGED_EVENT, syncUser);
     window.addEventListener('storage', syncUser);
     return () => {
-      window.removeEventListener(WAKWAK_USER_CHANGED_EVENT, syncUser);
+      window.removeEventListener(VOXMANUS_USER_CHANGED_EVENT, syncUser);
       window.removeEventListener('storage', syncUser);
     };
   }, []);
 
   const myPhoneNumber = useMemo(() => {
     if (typeof window === 'undefined') return SYSTEM_PHONES.deaf;
-    if (wakwakUser?.phoneNumber) return wakwakUser.phoneNumber;
-    const profile = localStorage.getItem('wakwak_profile');
+    if (voxmanusUser?.phoneNumber) return voxmanusUser.phoneNumber;
+    const profile = localStorage.getItem('voxmanus_profile');
     const defaultPhone = profile === 'entendant' ? SYSTEM_PHONES.hearing : SYSTEM_PHONES.deaf;
     return normalizePhoneNumber(localStorage.getItem('userPhone') || defaultPhone);
-  }, [wakwakUser]);
+  }, [voxmanusUser]);
 
-  const myRole = wakwakUser?.role
-    || (localStorage.getItem('wakwak_profile') === 'entendant' ? 'hearing' : 'deaf');
+  const myRole = voxmanusUser?.role
+    || (localStorage.getItem('voxmanus_profile') === 'entendant' ? 'hearing' : 'deaf');
 
   const onToast = useCallback((message, type = 'info') => {
     setCallToast({ message, type });
     setTimeout(() => setCallToast(null), 2500);
   }, []);
 
-  const presenceByPhone = useFirebasePresence(wakwakUser);
+  const presenceByPhone = useFirebasePresence(voxmanusUser);
   const {
     startFirebaseCaller,
     startFirebaseCallee,
@@ -124,7 +124,7 @@ export function CallSystemProvider({ children }) {
 
   const callSystem = useCallSystem(myPhoneNumber, myRole, {
     onToast,
-    myUserId: wakwakUser?.id,
+    myUserId: voxmanusUser?.id,
   });
 
   const getRealtimeStatus = useCallback(
@@ -153,7 +153,7 @@ export function CallSystemProvider({ children }) {
 
   useEffect(() => {
     const peer = callSystem.activeCall?.withPhone;
-    if (!peer || !wakwakUser) {
+    if (!peer || !voxmanusUser) {
       navigatedCallKeyRef.current = null;
       return;
     }
@@ -161,7 +161,7 @@ export function CallSystemProvider({ children }) {
     const callKey = `${peer}-${callSystem.activeCall.startTime}`;
     if (navigatedCallKeyRef.current === callKey) return;
 
-    const route = getCallRouteForPeer(peer, wakwakUser.role);
+    const route = getCallRouteForPeer(peer, voxmanusUser.role);
     const onCallScreen = location.pathname.startsWith('/call/')
       || location.pathname.startsWith('/entendant/call/');
 
@@ -169,7 +169,7 @@ export function CallSystemProvider({ children }) {
       navigate(route, { replace: true });
     }
     navigatedCallKeyRef.current = callKey;
-  }, [callSystem.activeCall, wakwakUser, location.pathname, navigate]);
+  }, [callSystem.activeCall, voxmanusUser, location.pathname, navigate]);
 
   useEffect(() => {
     if (pushAcceptHandledRef.current || !callSystem.myPhoneNumber) return undefined;
@@ -242,8 +242,8 @@ export function CallSystemProvider({ children }) {
         <div
           className="fixed top-4 left-1/2 -translate-x-1/2 z-[100000] px-4 py-2 rounded-full text-[12px] font-bold shadow-lg whitespace-nowrap"
           style={{
-            background: callToast.type === 'error' ? '#3a1010' : '#0a1e0c',
-            color: callToast.type === 'error' ? '#ef4444' : '#4ade80',
+            background: callToast.type === 'error' ? '#3a1010' : '#EAF5EB',
+            color: callToast.type === 'error' ? '#E53935' : '#2E7D32',
           }}
         >
           {callToast.message}

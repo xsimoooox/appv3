@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     if (!subscription) return res.status(404).json({ error: 'Téléphone non abonné aux notifications' });
 
     webpush.setVapidDetails(
-      process.env.VAPID_SUBJECT || 'mailto:contact@wakwak.app',
+      process.env.VAPID_SUBJECT || 'mailto:contact@voxmanus.app',
       process.env.VAPID_PUBLIC_KEY,
       process.env.VAPID_PRIVATE_KEY,
     );

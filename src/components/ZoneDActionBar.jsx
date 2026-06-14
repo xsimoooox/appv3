@@ -20,15 +20,15 @@ function SideActionButton({
   ariaLabel,
 }) {
   const circleClass = (() => {
-    if (!active) return 'bg-[#fee2e2] border-[#fecaca] text-[#ef4444]';
-    if (activeTone === 'neutral') return 'bg-[#f5f5f5] border-[#e0e0e0] text-[#666666]';
-    if (activeTone === 'hp') return 'bg-[#ecfdf5] border-[#bbf7d0] text-[#16a34a]';
-    return 'bg-[#e8f5e9] border-[#c8e6c9] text-[#16a34a]';
+    if (!active) return 'bg-[#fee2e2] border-[#fecaca] text-[#E53935]';
+    if (activeTone === 'neutral') return 'bg-[#f5f5f5] border-[#e0e0e0] text-[#5F5F72]';
+    if (activeTone === 'hp') return 'bg-[#ecfdf5] border-[#bbf7d0] text-[#2E7D32]';
+    return 'bg-[#EAF5EB] border-[#c8e6c9] text-[#2E7D32]';
   })();
   const labelClass = (() => {
-    if (!active) return 'text-[#ef4444]';
-    if (activeTone === 'neutral') return 'text-[#777777]';
-    return 'text-[#16a34a]';
+    if (!active) return 'text-[#E53935]';
+    if (activeTone === 'neutral') return 'text-[#5F5F72]';
+    return 'text-[#2E7D32]';
   })();
 
   const Icon = active ? IconActive : IconInactive;
@@ -62,14 +62,14 @@ function HpButton({ hpOn, onClick }) {
       <span
         className={`w-11 h-11 rounded-full border flex items-center justify-center ${
           hpOn
-            ? 'bg-[#ecfdf5] border-[#bbf7d0] text-[#16a34a]'
-            : 'bg-[#f5f5f5] border-[#e0e0e0] text-[#888888]'
+            ? 'bg-[#ecfdf5] border-[#bbf7d0] text-[#2E7D32]'
+            : 'bg-[#f5f5f5] border-[#e0e0e0] text-[#666680888]'
         }`}
       >
         <Volume2 size={20} strokeWidth={2.25} />
       </span>
       <span
-        className={`text-[9px] font-bold leading-none ${hpOn ? 'text-[#16a34a]' : 'text-[#888888]'}`}
+        className={`text-[9px] font-bold leading-none ${hpOn ? 'text-[#2E7D32]' : 'text-[#666680888]'}`}
       >
         HP
       </span>
@@ -87,10 +87,10 @@ function EndRencontreButton({ onClick }) {
       aria-label="Terminer la session"
       className="flex flex-1 flex-col items-center gap-1 min-w-0 border-none bg-transparent cursor-pointer active:scale-95 transition-transform"
     >
-      <span className="w-11 h-11 rounded-[10px] border-2 border-[#6366f1] bg-[#f5f0ff] text-[#6366f1] flex items-center justify-center shadow-sm">
+      <span className="w-11 h-11 rounded-[10px] border-2 border-[#0000B4] bg-[#f5f0ff] text-[#0000B4] flex items-center justify-center shadow-sm">
         <LogOut size={20} strokeWidth={2.25} />
       </span>
-      <span className="text-[9px] font-bold text-[#6366f1] leading-none">Session</span>
+      <span className="text-[9px] font-bold text-[#0000B4] leading-none">Session</span>
     </button>
   );
 }
@@ -108,11 +108,11 @@ function EndCallButton({ onClick, label = 'Terminer', size = 'md' }) {
       className="flex flex-col items-center gap-1 shrink-0 border-none bg-transparent cursor-pointer active:scale-95 transition-transform z-[2]"
     >
       <span
-        className={`${dim} rounded-full bg-[#ef4444] text-white flex items-center justify-center shadow-[0_4px_14px_rgba(239,68,68,0.4)]`}
+        className={`${dim} rounded-full bg-[#E53935] text-white flex items-center justify-center shadow-[0_4px_14px_rgba(239,68,68,0.4)]`}
       >
         <PhoneOff size={iconSize} strokeWidth={2.5} />
       </span>
-      <span className="text-[9px] font-bold text-[#ef4444] leading-none">{label}</span>
+      <span className="text-[9px] font-bold text-[#E53935] leading-none">{label}</span>
     </button>
   );
 }

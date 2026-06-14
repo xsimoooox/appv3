@@ -246,7 +246,7 @@ export const useSosStore = create<SosState>()(
       },
     }),
     {
-      name: 'wakwak-sos-store',
+      name: 'voxmanus-sos-store',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         emergencyContacts: state.emergencyContacts,

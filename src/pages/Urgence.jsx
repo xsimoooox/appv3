@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Shield, Phone, AlertTriangle, Send, RefreshCw, Video, X, EyeOff, Wifi, Battery, VolumeX } from 'lucide-react';
 import { normalizePhoneNumber } from '../lib/phoneUtils';
 
-const SOS_CONTACTS_KEY = 'wakwak_contacts';
+const SOS_CONTACTS_KEY = 'voxmanus_contacts';
 
 function getEmergencyContacts() {
   try {
@@ -261,7 +261,7 @@ export default function Urgence() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B1020] text-slate-100 flex flex-col justify-between select-none pb-2">
+    <div className="min-h-screen bg-[#F0F0F0] text-slate-100 flex flex-col justify-between select-none pb-2">
       
       {/* 72px SLICK HEADER */}
       <header className={`h-[72px] shrink-0 px-4 border-b flex items-center justify-between sticky top-0 backdrop-blur-xl bg-slate-900/80 z-30 transition-all duration-300 ${sosStatus === 'active' ? 'border-rose-500/40' : 'border-white/5'}`}>
@@ -270,7 +270,7 @@ export default function Urgence() {
             <VolumeX size={18} className="text-white" />
           </div>
           <div>
-            <h2 className="text-[14px] font-bold text-slate-200 tracking-wide m-0">SignBridge Web</h2>
+            <h2 className="text-[14px] font-bold text-slate-200 tracking-wide m-0">VoxManus Web</h2>
             <span className="text-[10px] font-semibold text-indigo-400 block -mt-0.5">Veille d'urgence LSF</span>
           </div>
         </div>
@@ -399,7 +399,7 @@ export default function Urgence() {
               {transcriptMessages.map((m) => (
                 <div key={m.id} className={`flex ${m.sender === 'user' ? 'justify-start' : 'justify-end'}`}>
                   <div className={`p-3 rounded-2xl max-w-[85%] border text-xs leading-relaxed ${
-                    m.sender === 'user' ? 'bg-[#1D9E75] border-emerald-500/20 text-white' : 'bg-slate-800 border-white/5 text-slate-200'
+                    m.sender === 'user' ? 'bg-[#2E7D32] border-emerald-500/20 text-white' : 'bg-slate-800 border-white/5 text-slate-200'
                   }`}>
                     <p className="m-0 font-medium">{m.content}</p>
                     <div className="flex items-center justify-between gap-4 mt-2">
@@ -519,7 +519,7 @@ export default function Urgence() {
                     <p className="text-[10px] text-slate-400 font-medium mt-0.5">{c.relation}</p>
                     <div className="flex items-center gap-1 mt-1 text-[9px] font-bold">
                       <span className={`w-1.5 h-1.5 rounded-full ${sosStatus === 'active' ? 'bg-emerald-500' : 'bg-slate-500'}`} />
-                      <span style={{ color: sosStatus === 'active' ? '#1D9E75' : '#64748B' }}>
+                      <span style={{ color: sosStatus === 'active' ? '#2E7D32' : '#64748B' }}>
                         {sosStatus === 'active' ? 'Notifié' : 'En attente'}
                       </span>
                     </div>
@@ -698,7 +698,7 @@ export default function Urgence() {
                 <Video size={24} className="text-emerald-500" />
               </div>
               <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wide">Traduction LSF Actrice</span>
-              <span className="text-slate-500 text-[10px] text-center max-w-[80%] mt-1 font-medium">L'avatar de SignBridge traduit vos signes en direct.</span>
+              <span className="text-slate-500 text-[10px] text-center max-w-[80%] mt-1 font-medium">L'avatar de VoxManus traduit vos signes en direct.</span>
             </div>
 
             <div className="bg-slate-950/40 rounded-xl p-3 border border-white/5 text-xs">
@@ -708,7 +708,7 @@ export default function Urgence() {
 
             <button
               onClick={() => setLsfModalOpen(false)}
-              className="w-full bg-[#1D9E75] hover:bg-[#15805d] text-white py-3 rounded-xl text-xs font-bold transition-colors active:scale-98"
+              className="w-full bg-[#2E7D32] hover:bg-[#15805d] text-white py-3 rounded-xl text-xs font-bold transition-colors active:scale-98"
             >
               Fermer
             </button>
@@ -762,7 +762,7 @@ export default function Urgence() {
                 onClick={verifyPin}
                 disabled={pinCode.length !== 4}
                 className={`flex-1 py-2.5 rounded-xl text-white text-xs font-bold transition-all ${
-                  pinCode.length === 4 ? 'bg-[#1D9E75] hover:bg-[#15805d]' : 'bg-white/5 text-slate-600 cursor-not-allowed'
+                  pinCode.length === 4 ? 'bg-[#2E7D32] hover:bg-[#15805d]' : 'bg-white/5 text-slate-600 cursor-not-allowed'
                 }`}
               >
                 Désactiver

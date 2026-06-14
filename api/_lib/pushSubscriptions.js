@@ -6,7 +6,7 @@ const DATABASE_AUTH_TOKEN = process.env.FIREBASE_DATABASE_AUTH_TOKEN || '';
 
 function pathUrl(phoneNumber) {
   const key = String(phoneNumber).trim();
-  const url = new URL(`${DATABASE_URL}/wakwak_push/${key}.json`);
+  const url = new URL(`${DATABASE_URL}/voxmanus_push/${key}.json`);
   if (DATABASE_AUTH_TOKEN) url.searchParams.set('auth', DATABASE_AUTH_TOKEN);
   return url.toString();
 }

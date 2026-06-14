@@ -17,7 +17,7 @@ export default function SessionTopBar({
         type="button"
         onClick={onBack}
         aria-label={backLabel}
-        className="flex items-center justify-center w-10 h-10 rounded-full text-[#6366f1] active:bg-[#f5f5f5] transition-colors shrink-0"
+        className="flex items-center justify-center w-10 h-10 rounded-full text-[#0000B4] active:bg-[#f5f5f5] transition-colors shrink-0"
       >
         <ChevronLeft size={22} strokeWidth={2.5} />
       </button>
@@ -28,7 +28,7 @@ export default function SessionTopBar({
           </h1>
         ) : null}
         {subtitle ? (
-          <p className="text-[10px] font-bold text-[#16a34a] m-0 mt-0.5 flex items-center justify-center gap-1.5">
+          <p className="text-[10px] font-bold text-[#2E7D32] m-0 mt-0.5 flex items-center justify-center gap-1.5">
             {subtitle}
           </p>
         ) : null}

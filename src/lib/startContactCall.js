@@ -1,5 +1,5 @@
 import { getSocket } from './socket';
-import { getWakwakUser } from './wakwakUser';
+import { getVoxManusUser } from './voxmanusUser';
 import {
   createRealtimeCall,
   generateSessionCode,
@@ -12,7 +12,7 @@ import { normalizePhoneNumber } from './phoneUtils';
 
 /** Socket.io disponible (serveur local ou VITE_SOCKET_URL configuré). */
 export function isSocketCallAvailable() {
-  const user = getWakwakUser();
+  const user = getVoxManusUser();
   return Boolean(getSocket()?.connected && user?.id);
 }
 
@@ -33,7 +33,7 @@ export async function startFirebaseCall({
 
   const code = generateSessionCode();
   const uid = getClientUid(role === 'deaf' ? 'deaf' : 'hearing');
-  const user = getWakwakUser();
+  const user = getVoxManusUser();
   const callerName = user?.name || (role === 'deaf' ? 'Personne sourde' : 'Personne entendante');
   const callerPhone = normalizePhoneNumber(user?.phoneNumber || '');
 

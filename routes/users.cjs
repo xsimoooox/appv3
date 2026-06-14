@@ -1,4 +1,5 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const userRepo = require('../lib/userRepository.cjs');
 const { authenticateToken } = require('../middleware/auth.cjs');
 const { normalizePhoneNumber } = require('../lib/phoneNormalize.cjs');
@@ -16,6 +17,29 @@ function requireDb(req, res, next) {
 }
 
 router.use(requireDb);
+
+router.post('/change-password', authenticateToken, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Mot de passe actuel et nouveau mot de passe requis' });
+    }
+    if (newPassword.length < 8 || !/[A-Z]/.test(newPassword) || !/[0-9]/.test(newPassword)) {
+      return res.status(400).json({ error: 'Le nouveau mot de passe doit contenir 8 caractères, une majuscule et un chiffre' });
+    }
+    const user = await userRepo.findById(req.user.id);
+    const valid = user && await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) {
+      return res.status(401).json({ error: 'Mot de passe actuel incorrect' });
+    }
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await userRepo.findByIdAndUpdate(req.user.id, { passwordHash });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('[CHANGE_PASSWORD]', err);
+    return res.status(500).json({ error: 'Impossible de modifier le mot de passe' });
+  }
+});
 
 router.get('/find/:phoneNumber', authenticateToken, async (req, res) => {
   try {

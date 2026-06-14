@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
 import { ErrorBoundary } from './components/ErrorBoundary'
-import { getWakwakUser } from './lib/wakwakUser'
+import { getVoxManusUser } from './lib/voxmanusUser'
 import { initSocket } from './lib/socket'
 
 // Enregistrement du Service Worker pour le support PWA
@@ -27,7 +27,7 @@ if (typeof window !== 'undefined' && 'Notification' in window && Notification.pe
 }
 
 function initAppOnLoad() {
-  const user = getWakwakUser();
+  const user = getVoxManusUser();
   if (user?.id) {
     initSocket(user);
   }

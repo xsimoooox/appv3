@@ -4,16 +4,16 @@ import { normalizePhoneNumber } from './phoneUtils';
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 export function getAuthToken() {
-  return localStorage.getItem('token') || localStorage.getItem('wakwak_token');
+  return localStorage.getItem('token') || localStorage.getItem('voxmanus_token');
 }
 
 export function setAuthToken(token) {
   if (token) {
     localStorage.setItem('token', token);
-    localStorage.setItem('wakwak_token', token);
+    localStorage.setItem('voxmanus_token', token);
   } else {
     localStorage.removeItem('token');
-    localStorage.removeItem('wakwak_token');
+    localStorage.removeItem('voxmanus_token');
   }
 }
 
@@ -100,6 +100,13 @@ export async function loginAccount({ phoneNumber, password }) {
       phoneNumber: normalizePhoneNumber(phoneNumber),
       password,
     }),
+  });
+}
+
+export async function changePassword({ currentPassword, newPassword }) {
+  return apiFetch('/users/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
   });
 }
 

@@ -28,8 +28,8 @@ export default function OutgoingCallModal({ outgoingCall, onCancel }) {
       <div
         className="text-center animate-fade-in"
         style={{
-          background: '#131313',
-          border: '1px solid #1e1e1e',
+          background: '#FFFFFF',
+          border: '1px solid #D9D9E8',
           borderRadius: 24,
           padding: '32px 24px',
           width: 'calc(100% - 48px)',
@@ -40,16 +40,16 @@ export default function OutgoingCallModal({ outgoingCall, onCancel }) {
           className="ti ti-phone-calling"
           style={{
             fontSize: 48,
-            color: '#6366f1',
+            color: '#0000B4',
             display: 'block',
             marginBottom: 12,
             animation: 'spin 3s linear infinite',
           }}
         />
-        <p className="text-[11px] font-bold uppercase m-0 mb-2" style={{ color: '#555' }}>
+        <p className="text-[11px] font-bold uppercase m-0 mb-2" style={{ color: '#666680' }}>
           Appel en cours…
         </p>
-        <p className="text-[18px] font-bold m-0 mb-1" style={{ color: '#f0f0f0' }}>
+        <p className="text-[18px] font-bold m-0 mb-1" style={{ color: '#16163A' }}>
           {outgoingCall.targetName || meta?.name || outgoingCall.targetPhone}
         </p>
         {(outgoingCall.targetName || meta?.name) && outgoingCall.targetPhone && (
@@ -58,11 +58,11 @@ export default function OutgoingCallModal({ outgoingCall, onCancel }) {
           </p>
         )}
         <div className="flex justify-center gap-1 mb-3">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#6366f1] animate-blink-1" />
-          <span className="w-1.5 h-1.5 rounded-full bg-[#6366f1] animate-blink-2" />
-          <span className="w-1.5 h-1.5 rounded-full bg-[#6366f1] animate-blink-3" />
+          <span className="w-1.5 h-1.5 rounded-full bg-[#0000B4] animate-blink-1" />
+          <span className="w-1.5 h-1.5 rounded-full bg-[#0000B4] animate-blink-2" />
+          <span className="w-1.5 h-1.5 rounded-full bg-[#0000B4] animate-blink-3" />
         </div>
-        <p className="text-[11px] m-0 mb-6" style={{ color: '#444' }}>
+        <p className="text-[11px] m-0 mb-6" style={{ color: '#878787' }}>
           {elapsed}s
         </p>
 
@@ -78,25 +78,25 @@ export default function OutgoingCallModal({ outgoingCall, onCancel }) {
               height: 64,
               borderRadius: '50%',
               background: '#3a1010',
-              border: '2px solid #ef4444',
+              border: '2px solid #E53935',
             }}
           >
-            <i className="ti ti-phone-off" style={{ fontSize: 28, color: '#ef4444' }} />
+            <i className="ti ti-phone-off" style={{ fontSize: 28, color: '#E53935' }} />
           </span>
-          <span className="text-[11px] font-bold mt-2" style={{ color: '#ef4444' }}>
+          <span className="text-[11px] font-bold mt-2" style={{ color: '#E53935' }}>
             Raccrocher
           </span>
         </button>
 
         <div
           className="mt-6 h-[3px] rounded-[2px] overflow-hidden"
-          style={{ background: '#1e1e1e' }}
+          style={{ background: '#D9D9E8' }}
         >
           <div
             className="h-full transition-all duration-1000"
             style={{
               width: `${progress}%`,
-              background: progress < 16.67 ? '#ef4444' : '#6366f1',
+              background: progress < 16.67 ? '#E53935' : '#0000B4',
             }}
           />
         </div>

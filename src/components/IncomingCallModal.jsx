@@ -29,8 +29,8 @@ export default function IncomingCallModal({ incomingCall, onAccept, onReject }) 
       <div
         className="text-center animate-fade-in"
         style={{
-          background: '#131313',
-          border: '1px solid #1e1e1e',
+          background: '#FFFFFF',
+          border: '1px solid #D9D9E8',
           borderRadius: 24,
           padding: '32px 24px',
           width: 'calc(100% - 48px)',
@@ -41,16 +41,16 @@ export default function IncomingCallModal({ incomingCall, onAccept, onReject }) 
           className="ti ti-phone-ringing"
           style={{
             fontSize: 48,
-            color: '#6366f1',
+            color: '#0000B4',
             display: 'block',
             marginBottom: 12,
             animation: 'pulse 1s infinite',
           }}
         />
-        <p className="text-[11px] font-bold uppercase m-0 mb-2" style={{ color: '#555' }}>
+        <p className="text-[11px] font-bold uppercase m-0 mb-2" style={{ color: '#666680' }}>
           Appel entrant
         </p>
-        <p className="text-[18px] font-bold m-0 mb-1" style={{ color: '#f0f0f0' }}>
+        <p className="text-[18px] font-bold m-0 mb-1" style={{ color: '#16163A' }}>
           {incomingCall.callerName || meta?.name || incomingCall.callerPhone || incomingCall.callerId}
         </p>
         {(incomingCall.callerPhone || incomingCall.callerId) && (
@@ -62,14 +62,14 @@ export default function IncomingCallModal({ incomingCall, onAccept, onReject }) 
           <span
             className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-full mb-2"
             style={{
-              background: meta.role === 'hearing' ? '#0a1e0c' : '#1a1040',
-              color: meta.role === 'hearing' ? '#4ade80' : '#a78bfa',
+              background: meta.role === 'hearing' ? '#EAF5EB' : '#EEEEFF',
+              color: meta.role === 'hearing' ? '#2E7D32' : '#a78bfa',
             }}
           >
             {roleLabel}
           </span>
         )}
-        <p className="text-[11px] m-0 mb-6" style={{ color: '#444' }}>
+        <p className="text-[11px] m-0 mb-6" style={{ color: '#878787' }}>
           Appel depuis {elapsed}s…
         </p>
 
@@ -86,12 +86,12 @@ export default function IncomingCallModal({ incomingCall, onAccept, onReject }) 
                 height: 64,
                 borderRadius: '50%',
                 background: '#3a1010',
-                border: '2px solid #ef4444',
+                border: '2px solid #E53935',
               }}
             >
-              <i className="ti ti-phone-off" style={{ fontSize: 28, color: '#ef4444' }} />
+              <i className="ti ti-phone-off" style={{ fontSize: 28, color: '#E53935' }} />
             </span>
-            <span className="text-[11px] font-bold mt-2" style={{ color: '#ef4444' }}>
+            <span className="text-[11px] font-bold mt-2" style={{ color: '#E53935' }}>
               Refuser
             </span>
           </button>
@@ -107,13 +107,13 @@ export default function IncomingCallModal({ incomingCall, onAccept, onReject }) 
                 width: 64,
                 height: 64,
                 borderRadius: '50%',
-                background: '#0a1e0c',
-                border: '2px solid #16a34a',
+                background: '#EAF5EB',
+                border: '2px solid #2E7D32',
               }}
             >
-              <i className="ti ti-phone" style={{ fontSize: 28, color: '#16a34a' }} />
+              <i className="ti ti-phone" style={{ fontSize: 28, color: '#2E7D32' }} />
             </span>
-            <span className="text-[11px] font-bold mt-2" style={{ color: '#16a34a' }}>
+            <span className="text-[11px] font-bold mt-2" style={{ color: '#2E7D32' }}>
               Accepter
             </span>
           </button>
@@ -121,13 +121,13 @@ export default function IncomingCallModal({ incomingCall, onAccept, onReject }) 
 
         <div
           className="mt-6 h-[3px] rounded-[2px] overflow-hidden"
-          style={{ background: '#1e1e1e' }}
+          style={{ background: '#D9D9E8' }}
         >
           <div
             className="h-full transition-all duration-1000 linear"
             style={{
               width: `${progress}%`,
-              background: progress < 16.67 ? '#ef4444' : '#6366f1',
+              background: progress < 16.67 ? '#E53935' : '#0000B4',
             }}
           />
         </div>

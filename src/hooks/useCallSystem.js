@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { findUserByPhone } from '../lib/api';
 import { canSpeakNow } from '../lib/turnTaking';
-import { getWakwakUser } from '../lib/wakwakUser';
+import { getVoxManusUser } from '../lib/voxmanusUser';
 import { getSocket, initSocket, callUserById } from '../lib/socket';
 
 const CALL_TIMEOUT_MS = 30000;
@@ -56,7 +56,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
   const [isRegistered, setIsRegistered] = useState(false);
   const [turnHolder, setTurnHolder] = useState(null);
 
-  const resolvedUserId = myUserId || getWakwakUser()?.id;
+  const resolvedUserId = myUserId || getVoxManusUser()?.id;
 
   const stopRingtone = useCallback(() => {
     if (ringtoneRef.current) {
@@ -95,7 +95,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
 
   const showBrowserNotification = useCallback((callerName, callerPhone) => {
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    new Notification('📞 Appel entrant — WakWak', {
+    new Notification('📞 Appel entrant — VoxManus', {
       body: `${callerName || callerPhone} vous appelle`,
       icon: '/icons/icon-192.png',
       tag: 'incoming-call',
@@ -398,9 +398,9 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
       return undefined;
     }
 
-    const wakwakUser = getWakwakUser();
-    if (wakwakUser?.id) {
-      initSocket(wakwakUser);
+    const voxmanusUser = getVoxManusUser();
+    if (voxmanusUser?.id) {
+      initSocket(voxmanusUser);
     }
 
     const socket = getSocket();
@@ -409,10 +409,10 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
     }
 
     const register = () => {
-      if (wakwakUser?.id) {
+      if (voxmanusUser?.id) {
         socket.emit('register_user', {
-          userId: String(wakwakUser.id),
-          phoneNumber: wakwakUser.phoneNumber,
+          userId: String(voxmanusUser.id),
+          phoneNumber: voxmanusUser.phoneNumber,
         });
       } else {
         socket.emit('register_user', myPhoneNumber);
@@ -522,8 +522,8 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
 
     socket.on('receive_voice_text', ({ text }) => {
       setReceivedText(text || '');
-      if (typeof window !== 'undefined' && window.wakwakProcessAvatar) {
-        window.wakwakProcessAvatar(text);
+      if (typeof window !== 'undefined' && window.voxmanusProcessAvatar) {
+        window.voxmanusProcessAvatar(text);
       }
     });
 
@@ -654,7 +654,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
       setActiveCall({ withPhone: phone, startTime: Date.now() });
       setIncomingCall(null);
 
-      const user = getWakwakUser();
+      const user = getVoxManusUser();
       const socket = getSocket() || (user?.id ? initSocket(user) : null);
       if (!socket) return;
 

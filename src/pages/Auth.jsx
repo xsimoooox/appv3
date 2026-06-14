@@ -7,8 +7,9 @@ import {
 } from '../lib/api';
 import { initSocket } from '../lib/socket';
 import { registerSocketUser } from '../lib/registerSocketUser';
-import { clearWakwakUser, getHomeRoute, getWakwakUser, saveWakwakUser } from '../lib/wakwakUser';
+import { clearVoxManusUser, getHomeRoute, getVoxManusUser, saveVoxManusUser } from '../lib/voxmanusUser';
 import { normalizePhoneNumber } from '../lib/phoneUtils';
+import BrandLogo from '../components/BrandLogo';
 
 const COUNTRY_CODES = [
   { flag: '🇲🇦', label: 'Maroc', code: '+212' },
@@ -28,7 +29,7 @@ function RoleBadge({ role }) {
     return (
       <span
         className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-1.5 rounded-full"
-        style={{ background: '#1a1040', color: '#818cf8' }}
+        style={{ background: '#EEEEFF', color: '#0000B4' }}
       >
         <i className="ti ti-ear-off" style={{ fontSize: 12 }} />
         Personne sourde
@@ -38,7 +39,7 @@ function RoleBadge({ role }) {
   return (
     <span
       className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3.5 py-1.5 rounded-full"
-      style={{ background: '#0a1e0c', color: '#4ade80' }}
+      style={{ background: '#EAF5EB', color: '#2E7D32' }}
     >
       <i className="ti ti-ear" style={{ fontSize: 12 }} />
       Personne entendante
@@ -48,7 +49,7 @@ function RoleBadge({ role }) {
 
 export default function Auth() {
   const navigate = useNavigate();
-  const existingUser = useMemo(() => getWakwakUser(), []);
+  const existingUser = useMemo(() => getVoxManusUser(), []);
   const [step, setStep] = useState('choose');
   const [selectedRole, setSelectedRole] = useState(null);
   const [fullName, setFullName] = useState('');
@@ -101,7 +102,7 @@ export default function Auth() {
   };
 
   const finishAuthSuccess = async (data) => {
-    const user = saveWakwakUser({
+    const user = saveVoxManusUser({
       ...data.user,
       token: data.token,
       avatar: null,
@@ -201,7 +202,7 @@ export default function Auth() {
     return (
       <div
         className="fixed inset-0 flex flex-col items-center justify-center px-6 select-none"
-        style={{ background: '#0a0a0a' }}
+        style={{ background: '#F0F0F0' }}
       >
         <div
           className="flex items-center justify-center mb-5"
@@ -209,23 +210,23 @@ export default function Auth() {
             width: 80,
             height: 80,
             borderRadius: '50%',
-            background: '#6366f1',
+            background: '#0000B4',
             animation: 'authCheckPop 600ms ease forwards',
           }}
         >
           <i className="ti ti-check" style={{ fontSize: 36, color: '#fff' }} />
         </div>
-        <p className="text-[13px] m-0 mb-1" style={{ color: '#555' }}>
+        <p className="text-[13px] m-0 mb-1" style={{ color: '#666680' }}>
           Bienvenue,
         </p>
-        <p className="text-[20px] font-bold m-0 mb-3" style={{ color: '#f0f0f0' }}>
+        <p className="text-[20px] font-bold m-0 mb-3" style={{ color: '#16163A' }}>
           {welcomeUser.name}
         </p>
         <RoleBadge role={welcomeUser.role} />
         <div className="flex gap-1.5 mt-10">
-          <span className="w-2 h-2 rounded-full bg-[#6366f1] animate-blink-1" />
-          <span className="w-2 h-2 rounded-full bg-[#6366f1] animate-blink-2" />
-          <span className="w-2 h-2 rounded-full bg-[#6366f1] animate-blink-3" />
+          <span className="w-2 h-2 rounded-full bg-[#0000B4] animate-blink-1" />
+          <span className="w-2 h-2 rounded-full bg-[#0000B4] animate-blink-2" />
+          <span className="w-2 h-2 rounded-full bg-[#0000B4] animate-blink-3" />
         </div>
       </div>
     );
@@ -235,13 +236,13 @@ export default function Auth() {
     return (
       <div
         className="fixed inset-0 overflow-y-auto select-none animate-fade-in"
-        style={{ background: '#0a0a0a' }}
+        style={{ background: '#F0F0F0' }}
       >
         <button
           type="button"
           onClick={() => setStep('choose')}
           className="flex items-center gap-2 border-none bg-transparent cursor-pointer p-4"
-          style={{ color: '#6366f1' }}
+          style={{ color: '#0000B4' }}
           aria-label="Retour"
         >
           <i className="ti ti-arrow-left" style={{ fontSize: 20 }} />
@@ -249,31 +250,21 @@ export default function Auth() {
 
         <div className="px-5 pb-10 max-w-md mx-auto">
           <div className="flex flex-col items-center mb-4">
-            <div
-              className="flex items-center justify-center mb-2"
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: '50%',
-                background: '#6366f1',
-              }}
-            >
-              <i className="ti ti-hand-finger" style={{ fontSize: 20, color: '#fff' }} />
-            </div>
+            <BrandLogo compact className="mb-2" />
             {!isLoginMode && selectedRole && <RoleBadge role={selectedRole} />}
           </div>
 
-          <h1 className="text-center text-[18px] font-bold m-0" style={{ color: '#f0f0f0' }}>
+          <h1 className="text-center text-[18px] font-bold m-0" style={{ color: '#16163A' }}>
             {isLoginMode ? 'Se connecter' : 'Créer votre profil'}
           </h1>
-          <p className="text-center text-[12px] m-0 mt-2 mb-6" style={{ color: '#555' }}>
+          <p className="text-center text-[12px] m-0 mt-2 mb-6" style={{ color: '#666680' }}>
             {isLoginMode ? 'Entrez vos identifiants pour continuer' : 'Entrez vos informations pour commencer'}
           </p>
 
           <div className="flex flex-col gap-3.5">
             {!isLoginMode && (
               <label className="block">
-                <span className="block text-[11px] font-bold mb-1.5" style={{ color: '#888' }}>
+                <span className="block text-[11px] font-bold mb-1.5" style={{ color: '#666680' }}>
                   Nom complet
                 </span>
                 <input
@@ -283,24 +274,24 @@ export default function Auth() {
                   placeholder="Ex: Amina Moussaoui"
                   className="w-full outline-none"
                   style={{
-                    background: '#131313',
-                    border: `1px solid ${nameError ? '#ef4444' : '#1e1e1e'}`,
+                    background: '#FFFFFF',
+                    border: `1px solid ${nameError ? '#E53935' : '#D9D9E8'}`,
                     borderRadius: 10,
                     padding: '13px 14px',
                     fontSize: 14,
-                    color: '#f0f0f0',
+                    color: '#16163A',
                   }}
                   onFocus={(e) => {
-                    if (!nameError) e.target.style.borderColor = '#6366f1';
+                    if (!nameError) e.target.style.borderColor = '#0000B4';
                     e.target.style.boxShadow = '0 0 0 3px rgba(99,102,241,0.15)';
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = nameError ? '#ef4444' : '#1e1e1e';
+                    e.target.style.borderColor = nameError ? '#E53935' : '#D9D9E8';
                     e.target.style.boxShadow = 'none';
                   }}
                 />
                 {nameError && (
-                  <span className="block text-[10px] mt-1" style={{ color: '#ef4444' }}>
+                  <span className="block text-[10px] mt-1" style={{ color: '#E53935' }}>
                     {nameError}
                   </span>
                 )}
@@ -308,10 +299,10 @@ export default function Auth() {
             )}
 
             <div>
-              <span className="block text-[11px] font-bold mb-1.5" style={{ color: '#888' }}>
+              <span className="block text-[11px] font-bold mb-1.5" style={{ color: '#666680' }}>
                 Numéro de téléphone
               </span>
-              <span className="block text-[10px] italic mb-1.5" style={{ color: '#444' }}>
+              <span className="block text-[10px] italic mb-1.5" style={{ color: '#878787' }}>
                 Votre identifiant unique dans l&apos;application
               </span>
               <div className="flex gap-2">
@@ -320,13 +311,13 @@ export default function Auth() {
                   onChange={(e) => setCountryCode(e.target.value)}
                   className="outline-none shrink-0"
                   style={{
-                    background: '#131313',
-                    border: '1px solid #1e1e1e',
+                    background: '#FFFFFF',
+                    border: '1px solid #D9D9E8',
                     borderRadius: 10,
                     padding: '13px 10px',
                     width: 96,
                     fontSize: 13,
-                    color: '#f0f0f0',
+                    color: '#16163A',
                   }}
                 >
                   {COUNTRY_CODES.map((c) => (
@@ -344,27 +335,27 @@ export default function Auth() {
                   placeholder="600 000 001"
                   className="flex-1 outline-none min-w-0"
                   style={{
-                    background: '#131313',
-                    border: `1px solid ${phoneError ? '#ef4444' : '#1e1e1e'}`,
+                    background: '#FFFFFF',
+                    border: `1px solid ${phoneError ? '#E53935' : '#D9D9E8'}`,
                     borderRadius: 10,
                     padding: '13px 14px',
                     fontSize: 14,
-                    color: '#f0f0f0',
+                    color: '#16163A',
                   }}
                 />
               </div>
               {phoneError && (
-                <span className="block text-[10px] mt-1" style={{ color: '#ef4444' }}>
+                <span className="block text-[10px] mt-1" style={{ color: '#E53935' }}>
                   {phoneError}
                 </span>
               )}
-              <p className="text-[10px] m-0 mt-1.5" style={{ color: '#f59e0b' }}>
+              <p className="text-[10px] m-0 mt-1.5" style={{ color: '#D25A1E' }}>
                 ⚠️ Ce numéro sera votre identifiant permanent. Il ne pourra pas être modifié.
               </p>
             </div>
 
             <label className="block">
-              <span className="block text-[11px] font-bold mb-1.5" style={{ color: '#888' }}>
+              <span className="block text-[11px] font-bold mb-1.5" style={{ color: '#666680' }}>
                 Mot de passe
               </span>
               <input
@@ -375,23 +366,23 @@ export default function Auth() {
                 autoComplete="new-password"
                 className="w-full outline-none"
                 style={{
-                  background: '#131313',
-                  border: `1px solid ${passwordError ? '#ef4444' : '#1e1e1e'}`,
+                  background: '#FFFFFF',
+                  border: `1px solid ${passwordError ? '#E53935' : '#D9D9E8'}`,
                   borderRadius: 10,
                   padding: '13px 14px',
                   fontSize: 14,
-                  color: '#f0f0f0',
+                  color: '#16163A',
                 }}
               />
               {passwordError && (
-                <span className="block text-[10px] mt-1" style={{ color: '#ef4444' }}>
+                <span className="block text-[10px] mt-1" style={{ color: '#E53935' }}>
                   {passwordError}
                 </span>
               )}
             </label>
 
             {authError && (
-              <p className="text-[11px] m-0 text-center" style={{ color: '#ef4444' }}>
+              <p className="text-[11px] m-0 text-center" style={{ color: '#E53935' }}>
                 {authError}
               </p>
             )}
@@ -399,9 +390,9 @@ export default function Auth() {
             {accountExists && (
               <div
                 className="rounded-[10px] px-3.5 py-3 flex flex-col gap-2"
-                style={{ background: '#1a1040', border: '1px solid #6366f1' }}
+                style={{ background: '#EEEEFF', border: '1px solid #0000B4' }}
               >
-                <p className="text-[12px] m-0" style={{ color: '#c7d2fe' }}>
+                <p className="text-[12px] m-0" style={{ color: '#000096' }}>
                   {existingAccountName
                     ? `Compte existant : ${existingAccountName}`
                     : 'Ce numéro a déjà un compte'}
@@ -415,7 +406,7 @@ export default function Auth() {
                     height: 44,
                     borderRadius: 10,
                     fontSize: 12,
-                    background: '#6366f1',
+                    background: '#0000B4',
                     color: '#fff',
                     opacity: submitting || password.length < 6 ? 0.5 : 1,
                   }}
@@ -428,12 +419,12 @@ export default function Auth() {
             {showRecap && (
               <div
                 className="rounded-[10px] px-3.5 py-3"
-                style={{ background: '#131313', border: '1px solid #1e1e1e' }}
+                style={{ background: '#FFFFFF', border: '1px solid #D9D9E8' }}
               >
-                <p className="text-[12px] m-0 mb-1" style={{ color: '#f0f0f0' }}>
+                <p className="text-[12px] m-0 mb-1" style={{ color: '#16163A' }}>
                   👤 {fullName.trim()}
                 </p>
-                <p className="text-[11px] m-0 mb-2" style={{ color: '#555' }}>
+                <p className="text-[11px] m-0 mb-2" style={{ color: '#666680' }}>
                   {phoneNumber}
                 </p>
                 <RoleBadge role={selectedRole} />
@@ -449,8 +440,8 @@ export default function Auth() {
                 height: 50,
                 borderRadius: 12,
                 fontSize: 13,
-                background: isFormValid && !submitting ? '#6366f1' : '#1a1a2e',
-                color: isFormValid && !submitting ? '#fff' : '#333',
+                background: isFormValid && !submitting ? '#0000B4' : '#D9D9E8',
+                color: isFormValid && !submitting ? '#fff' : '#878787',
                 cursor: isFormValid && !submitting ? 'pointer' : 'not-allowed',
               }}
             >
@@ -474,7 +465,7 @@ export default function Auth() {
                 setAccountExists(false);
               }}
               className="w-full border-none cursor-pointer bg-transparent text-[12px] font-semibold mt-3"
-              style={{ color: '#6366f1' }}
+              style={{ color: '#0000B4' }}
             >
               {isLoginMode ? "Pas de compte ? Créer un profil" : "Déjà un compte ? Se connecter"}
             </button>
@@ -487,36 +478,23 @@ export default function Auth() {
   return (
     <div
       className="fixed inset-0 flex flex-col justify-center px-5 py-8 select-none max-w-md mx-auto"
-      style={{ background: '#0a0a0a' }}
+      style={{ background: '#F0F0F0' }}
     >
       <div className="flex flex-col items-center mb-8">
-        <div
-          className="flex items-center justify-center mb-4"
-          style={{
-            width: 64,
-            height: 64,
-            borderRadius: '50%',
-            background: '#6366f1',
-          }}
-        >
-          <i className="ti ti-hand-finger" style={{ fontSize: 32, color: '#fff' }} />
-        </div>
-        <h1 className="text-[24px] font-bold m-0" style={{ color: '#f0f0f0' }}>
-          WakWak
-        </h1>
-        <p className="text-[13px] text-center m-0 mt-2 mb-2" style={{ color: '#555' }}>
+        <BrandLogo className="mb-1" />
+        <p className="text-[13px] text-center m-0 mt-2 mb-2" style={{ color: '#666680' }}>
           Communication sans frontières
         </p>
         <div
           style={{
             width: 40,
             height: 2,
-            background: '#6366f1',
+            background: '#0000B4',
             borderRadius: 1,
             marginBottom: 32,
           }}
         />
-        <p className="text-[15px] font-bold m-0" style={{ color: '#f0f0f0' }}>
+        <p className="text-[15px] font-bold m-0" style={{ color: '#16163A' }}>
           Qui êtes-vous ?
         </p>
       </div>
@@ -529,7 +507,7 @@ export default function Auth() {
             disabled={submitting}
             className="w-full border-none cursor-pointer text-[13px] font-bold"
             style={{
-              background: '#6366f1',
+              background: '#0000B4',
               color: '#fff',
               borderRadius: 14,
               padding: '14px 16px',
@@ -540,7 +518,7 @@ export default function Auth() {
           <button
             type="button"
             onClick={() => {
-              clearWakwakUser();
+              clearVoxManusUser();
               window.location.reload();
             }}
             className="w-full border-none cursor-pointer text-[11px] font-semibold bg-transparent"
@@ -557,18 +535,18 @@ export default function Auth() {
           onClick={() => goToForm('deaf')}
           className="w-full text-left border-none cursor-pointer transition-colors"
           style={{
-            background: '#0d0d1a',
-            border: '1.5px solid #1a1a40',
+            background: '#FFFFFF',
+            border: '1.5px solid #000096',
             borderRadius: 16,
             padding: '20px 16px',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = '#6366f1';
-            e.currentTarget.style.background = '#12122a';
+            e.currentTarget.style.borderColor = '#0000B4';
+            e.currentTarget.style.background = '#EEEEFF';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = '#1a1a40';
-            e.currentTarget.style.background = '#0d0d1a';
+            e.currentTarget.style.borderColor = '#000096';
+            e.currentTarget.style.background = '#FFFFFF';
           }}
         >
           <div className="flex items-center gap-3.5">
@@ -577,21 +555,21 @@ export default function Auth() {
               style={{
                 width: 48,
                 height: 48,
-                background: '#1a1040',
+                background: '#EEEEFF',
                 borderRadius: 12,
               }}
             >
-              <i className="ti ti-ear-off" style={{ fontSize: 24, color: '#818cf8' }} />
+              <i className="ti ti-ear-off" style={{ fontSize: 24, color: '#0000B4' }} />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[14px] font-bold" style={{ color: '#f0f0f0' }}>
+              <div className="text-[14px] font-bold" style={{ color: '#16163A' }}>
                 Personne sourde
               </div>
-              <div className="text-[11px] mt-0.5" style={{ color: '#555' }}>
+              <div className="text-[11px] mt-0.5" style={{ color: '#666680' }}>
                 Communication LSF via gants + avatar
               </div>
             </div>
-            <i className="ti ti-chevron-right shrink-0" style={{ fontSize: 18, color: '#333' }} />
+            <i className="ti ti-chevron-right shrink-0" style={{ fontSize: 18, color: '#878787' }} />
           </div>
         </button>
 
@@ -600,18 +578,18 @@ export default function Auth() {
           onClick={() => goToForm('hearing')}
           className="w-full text-left border-none cursor-pointer transition-colors"
           style={{
-            background: '#0a1a0a',
-            border: '1.5px solid #1a3a1a',
+            background: '#FFFFFF',
+            border: '1.5px solid #000096',
             borderRadius: 16,
             padding: '20px 16px',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.borderColor = '#16a34a';
-            e.currentTarget.style.background = '#0d1f0d';
+            e.currentTarget.style.borderColor = '#2E7D32';
+            e.currentTarget.style.background = '#F0F0F0';
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.borderColor = '#1a3a1a';
-            e.currentTarget.style.background = '#0a1a0a';
+            e.currentTarget.style.borderColor = '#000096';
+            e.currentTarget.style.background = '#FFFFFF';
           }}
         >
           <div className="flex items-center gap-3.5">
@@ -620,21 +598,21 @@ export default function Auth() {
               style={{
                 width: 48,
                 height: 48,
-                background: '#0a1e0c',
+                background: '#EAF5EB',
                 borderRadius: 12,
               }}
             >
-              <i className="ti ti-ear" style={{ fontSize: 24, color: '#4ade80' }} />
+              <i className="ti ti-ear" style={{ fontSize: 24, color: '#2E7D32' }} />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[14px] font-bold" style={{ color: '#f0f0f0' }}>
+              <div className="text-[14px] font-bold" style={{ color: '#16163A' }}>
                 Personne entendante
               </div>
-              <div className="text-[11px] mt-0.5" style={{ color: '#555' }}>
+              <div className="text-[11px] mt-0.5" style={{ color: '#666680' }}>
                 Reçoit la traduction LSF en texte + voix
               </div>
             </div>
-            <i className="ti ti-chevron-right shrink-0" style={{ fontSize: 18, color: '#333' }} />
+            <i className="ti ti-chevron-right shrink-0" style={{ fontSize: 18, color: '#878787' }} />
           </div>
         </button>
         <button
@@ -647,9 +625,9 @@ export default function Auth() {
           className="w-full border-none cursor-pointer font-bold mt-4"
           style={{
             height: 48,
-            background: '#131313',
-            border: '1px solid #1e1e1e',
-            color: '#818cf8',
+            background: '#FFFFFF',
+            border: '1px solid #D9D9E8',
+            color: '#0000B4',
             borderRadius: 14,
             fontSize: 13,
           }}

@@ -1,4 +1,3 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import AuthGate from './components/AuthGate';
 import BottomNav from './components/BottomNav';
@@ -59,11 +58,11 @@ function AppContent() {
 
   return (
     <div
-      className={`min-h-screen bg-[#f5f5f5] flex flex-col justify-between ${
+      className={`vox-app min-h-screen bg-[#F0F0F0] flex flex-col justify-between ${
         hideBottomNav ? 'pb-0' : 'pb-[80px]'
       }`}
     >
-      <main className="flex-grow flex flex-col w-full max-w-md mx-auto min-h-0">
+      <main className="flex-grow flex flex-col w-full mx-auto min-h-0">
         <AuthGate>
           <AnimatedRoutes />
         </AuthGate>

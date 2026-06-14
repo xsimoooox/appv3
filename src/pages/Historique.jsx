@@ -1,32 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, History, MessageSquare, Trash2 } from 'lucide-react';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function Historique() {
   const navigate = useNavigate();
-  const [sessions, setSessions] = useState([]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('sessions');
-    if (saved) {
-      setSessions(JSON.parse(saved));
+  const [sessions, setSessions] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('sessions') || '[]');
+    } catch {
+      return [];
     }
-  }, []);
+  });
+  const [confirmAction, setConfirmAction] = useState(null);
 
   const handleDeleteSession = (id, e) => {
     e.stopPropagation();
-    if (window.confirm("Voulez-vous supprimer cet appel de l'historique ?")) {
-      const updated = sessions.filter(s => s.id !== id);
-      localStorage.setItem('sessions', JSON.stringify(updated));
-      setSessions(updated);
-    }
+    setConfirmAction({ type: 'session', id });
   };
 
   const handleClearAll = () => {
-    if (window.confirm("Voulez-vous effacer tout l'historique des appels ?")) {
+    setConfirmAction({ type: 'all' });
+  };
+
+  const confirmDeletion = () => {
+    if (confirmAction?.type === 'session') {
+      const updated = sessions.filter(s => s.id !== confirmAction.id);
+      localStorage.setItem('sessions', JSON.stringify(updated));
+      setSessions(updated);
+    } else if (confirmAction?.type === 'all') {
       localStorage.removeItem('sessions');
       setSessions([]);
     }
+    setConfirmAction(null);
   };
 
   return (
@@ -87,7 +93,7 @@ export default function Historique() {
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <span className="text-[9px] font-black uppercase bg-[#e8f5e9] border border-[#c8e6c9] text-emerald-400 px-1.5 py-0.5 rounded-[6px] select-none">
+                    <span className="text-[9px] font-black uppercase bg-[#EAF5EB] border border-[#c8e6c9] text-emerald-400 px-1.5 py-0.5 rounded-[6px] select-none">
                       {typeof session.duration === 'number' ? `${session.duration}s` : session.duration || '—'}
                     </span>
                     <button
@@ -116,6 +122,14 @@ export default function Historique() {
         )}
       </div>
 
+      <ConfirmDialog
+        open={Boolean(confirmAction)}
+        title={confirmAction?.type === 'all' ? 'Effacer tout l’historique ?' : 'Supprimer cet appel ?'}
+        message={confirmAction?.type === 'all' ? 'Toutes les conversations sauvegardées seront supprimées définitivement.' : 'Cet appel sera retiré définitivement de votre historique.'}
+        confirmLabel={confirmAction?.type === 'all' ? 'Tout effacer' : 'Supprimer'}
+        onCancel={() => setConfirmAction(null)}
+        onConfirm={confirmDeletion}
+      />
     </div>
   );
 }

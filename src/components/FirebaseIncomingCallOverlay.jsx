@@ -31,21 +31,21 @@ export default function FirebaseIncomingCallOverlay({
 
   return (
     <div className="fixed inset-0 z-[100002] flex items-start justify-center pt-4 px-3 pointer-events-none">
-      <div className="pointer-events-auto w-full max-w-sm rounded-[16px] border-2 border-[#6366f1] bg-[#f5f0ff] p-4 shadow-2xl animate-fade-in">
+      <div className="pointer-events-auto w-full max-w-sm rounded-[16px] border-2 border-[#0000B4] bg-[#f5f0ff] p-4 shadow-2xl animate-fade-in">
         <div className="flex items-start gap-3">
-          <div className="w-11 h-11 rounded-full bg-[#6366f1] flex items-center justify-center shrink-0 animate-pulse">
+          <div className="w-11 h-11 rounded-full bg-[#0000B4] flex items-center justify-center shrink-0 animate-pulse">
             <PhoneIncoming className="text-white" size={22} strokeWidth={2.25} />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[14px] font-extrabold text-[#111111] m-0">Appel entrant LSF</p>
-            <p className="text-[12px] font-bold text-[#555555] mt-1 m-0">
-              {incomingCall.callerName || 'Un utilisateur WakWak'}
+            <p className="text-[12px] font-bold text-[#666680555] mt-1 m-0">
+              {incomingCall.callerName || 'Un utilisateur VoxManus'}
             </p>
-            <p className="text-[11px] text-[#6366f1] font-bold mt-0.5 m-0">
+            <p className="text-[11px] text-[#0000B4] font-bold mt-0.5 m-0">
               Code : {incomingCall.code}
             </p>
             {remaining && !expired && (
-              <p className="text-[10px] text-[#777777] mt-1 m-0">
+              <p className="text-[10px] text-[#5F5F72] mt-1 m-0">
                 Valide encore {remaining} (max {CALL_INVITE_TTL_MS / 60000} min)
               </p>
             )}
@@ -60,7 +60,7 @@ export default function FirebaseIncomingCallOverlay({
               e.stopPropagation();
               onAccept();
             }}
-            className="h-11 flex-1 rounded-[12px] bg-[#16a34a] disabled:opacity-50 text-white text-[12px] font-extrabold flex items-center justify-center gap-1.5 active:scale-95"
+            className="h-11 flex-1 rounded-[12px] bg-[#2E7D32] disabled:opacity-50 text-white text-[12px] font-extrabold flex items-center justify-center gap-1.5 active:scale-95"
           >
             {accepting ? (
               <Loader2 size={16} className="animate-spin" />
@@ -77,7 +77,7 @@ export default function FirebaseIncomingCallOverlay({
               e.stopPropagation();
               onReject();
             }}
-            className="h-11 flex-1 rounded-[12px] bg-[#ef4444] text-white text-[12px] font-extrabold flex items-center justify-center gap-1.5 active:scale-95"
+            className="h-11 flex-1 rounded-[12px] bg-[#E53935] text-white text-[12px] font-extrabold flex items-center justify-center gap-1.5 active:scale-95"
           >
             <PhoneOff size={16} strokeWidth={2.5} />
             Refuser

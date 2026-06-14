@@ -1,601 +1,318 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCallSystemContext } from '../context/CallSystemContext';
-import { performLogout } from '../lib/logoutSession';
 import {
-  AlertTriangle,
+  AlertCircle,
+  ArrowLeft,
   Bell,
-  Calendar,
   Camera,
-  Captions,
-  Check,
-  ChevronRight,
-  ClipboardList,
-  X,
-  Contrast,
+  CheckCircle2,
   Eye,
-  FileText,
-  Gauge,
-  Globe2,
+  EyeOff,
   KeyRound,
   Languages,
-  Lock,
-  ArrowLeft,
   LogOut,
   Mail,
-  MapPin,
-  MessageCircle,
-  MonitorSmartphone,
-  Package,
-  Palette,
   Phone,
+  Save,
   ShieldCheck,
-  Star,
   Trash2,
-  Type,
   User,
-  Vibrate,
-  Volume2,
+  UserRound,
+  X,
 } from 'lucide-react';
+import BrandLogo from '../components/BrandLogo';
+import { useCallSystemContext } from '../context/CallSystemContext';
+import { getVoxManusUser, saveVoxManusUser } from '../lib/voxmanusUser';
+import { performLogout } from '../lib/logoutSession';
+import { changePassword as changePasswordRequest } from '../lib/api';
 
-const initialProfile = {
-  firstName: 'Jean',
-  lastName: 'Dupont',
-  birthDate: '12/05/1995',
-  phone: '+33 6 XX XX XX XX',
-  email: 'jean@mail.com',
-  city: 'Paris',
-  signLanguage: 'LSF',
-};
+const PROFILE_KEY = 'voxmanus_profile_data';
 
-const personalFields = [
-  { key: 'firstName', label: 'Prénom', icon: User, type: 'text' },
-  { key: 'lastName', label: 'Nom', icon: ShieldCheck, type: 'text' },
-  { key: 'birthDate', label: 'Date de naissance', icon: Calendar, type: 'text' },
-  { key: 'phone', label: 'Téléphone', icon: Phone, type: 'text' },
-  { key: 'email', label: 'Email', icon: Mail, type: 'email' },
-  { key: 'city', label: 'Ville', icon: MapPin, type: 'text' },
-  { key: 'signLanguage', label: 'Langue des signes', icon: Languages, type: 'select', options: ['LSF', 'ASL', 'MSA'] },
-];
-
-function SectionTitle({ children, danger = false }) {
-  return (
-    <div className={`mx-4 mt-4 mb-2 text-[11px] font-bold uppercase ${danger ? 'text-[#EF4444]' : 'text-[#9CA3AF]'}`}>
-      {children}
-    </div>
-  );
+function getInitialProfile(user) {
+  const names = String(user?.name || '').trim().split(/\s+/);
+  return {
+    firstName: names[0] || '',
+    lastName: names.slice(1).join(' '),
+    email: '',
+    phone: user?.phoneNumber || '',
+    role: user?.role || 'deaf',
+    avatar: user?.avatar || null,
+    language: 'Français',
+    notifications: true,
+  };
 }
 
-function SettingsCard({ children, danger = false, className = '' }) {
-  return (
-    <div
-      className={`mx-4 overflow-hidden rounded-[16px] shadow-[0_1px_4px_rgba(0,0,0,0.06)] ${
-        danger ? 'border border-[#FECACA] bg-[#FFF1F1]' : 'bg-white'
-      } ${className}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-function IconBubble({ icon: Icon, danger = false }) {
-  return (
-    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${danger ? 'bg-white text-[#EF4444]' : 'bg-[#F3F4F6] text-[#4F46E5]'}`}>
-      <Icon size={18} strokeWidth={2.1} />
-    </span>
-  );
-}
-
-function Row({ icon, label, value, onClick, children, danger = false, bold = false }) {
-  const Icon = icon;
-  const interactive = Boolean(onClick);
-  const Wrapper = interactive ? 'button' : 'div';
-
-  return (
-    <Wrapper
-      type={interactive ? 'button' : undefined}
-      onClick={onClick}
-      className={`flex min-h-[56px] w-full items-center gap-3 border-b border-[#F3F4F6] px-4 py-[14px] text-left last:border-b-0 ${
-        interactive ? 'cursor-pointer active:scale-[0.99]' : 'cursor-default'
-      }`}
-    >
-      <IconBubble icon={Icon} danger={danger} />
-      <span className={`min-w-0 flex-1 text-[14px] ${danger ? 'text-[#EF4444]' : 'text-[#1F2937]'} ${bold ? 'font-bold' : 'font-medium'}`}>
-        {label}
-      </span>
-      {children || (
-        <>
-          {value && <span className="max-w-[150px] truncate text-right text-[13px] font-medium text-[#6B7280]">{value}</span>}
-          {onClick && <ChevronRight size={18} className="shrink-0 text-[#D1D5DB]" />}
-        </>
-      )}
-    </Wrapper>
-  );
-}
-
-function Toggle({ checked, onChange }) {
+function Toggle({ checked, onChange, label }) {
   return (
     <button
       type="button"
-      onClick={(event) => {
-        event.stopPropagation();
-        onChange(!checked);
-      }}
-      className={`relative h-[30px] w-[52px] shrink-0 overflow-hidden rounded-full transition-colors ${checked ? 'bg-[#4F46E5]' : 'bg-[#D1D5DB]'}`}
+      className={`vox-toggle ${checked ? 'is-on' : ''}`}
+      onClick={() => onChange(!checked)}
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
     >
-      <span
-        className={`absolute left-[3px] top-[3px] h-6 w-6 rounded-full bg-white shadow-[0_1px_4px_rgba(0,0,0,0.15)] transition-transform ${
-          checked ? 'translate-x-[22px]' : 'translate-x-0'
-        }`}
-      />
+      <span />
     </button>
   );
 }
 
-function SliderControl({ value, min, max, step = 1, suffix = '', onChange }) {
-  const percent = ((value - min) / (max - min)) * 100;
-
-  return (
-    <div className="flex w-[150px] shrink-0 items-center gap-3">
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onClick={(event) => event.stopPropagation()}
-        onChange={(event) => onChange(Number(event.target.value))}
-        className="h-[6px] w-full appearance-none rounded-full [&::-webkit-slider-thumb]:h-[22px] [&::-webkit-slider-thumb]:w-[22px] [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_1px_4px_rgba(0,0,0,0.15)]"
-        style={{
-          background: `linear-gradient(to right, #4F46E5 ${percent}%, #E5E7EB ${percent}%)`,
-        }}
-      />
-      <span className="w-8 text-right text-[12px] font-bold text-[#6B7280]">
-        {value}{suffix}
-      </span>
-    </div>
-  );
-}
-
-function AvatarChoiceCard({ active, name, description, tone, onClick }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`relative flex-1 rounded-[14px] border-2 p-2 text-left transition active:scale-[0.97] ${
-        active ? 'border-[#4F46E5]' : 'border-[#E5E7EB]'
-      }`}
-    >
-      {active && (
-        <span className="absolute right-2 top-2 z-10 inline-flex items-center gap-1 rounded-full bg-[#4F46E5] px-2 py-1 text-[10px] font-bold text-white">
-          <Check size={11} strokeWidth={3} /> Actif
-        </span>
-      )}
-      <div className={`mb-3 flex h-[140px] aspect-[9/16] w-full items-end justify-center overflow-hidden rounded-[12px] ${tone}`}>
-        <div className="mb-3 flex h-[76px] w-[52px] flex-col items-center rounded-t-full bg-white/85 shadow-sm">
-          <div className="mt-2 h-8 w-8 rounded-full bg-[#4F46E5]/20" />
-          <div className="mt-2 h-7 w-10 rounded-t-[18px] bg-[#4F46E5]/30" />
-        </div>
-      </div>
-      <div className="text-[14px] font-bold text-[#1F2937]">{name}</div>
-      <div className="text-[11px] font-medium text-[#6B7280]">{description}</div>
-    </button>
-  );
-}
-
-export default function Parametres() {
+export default function Parametres({ variant }) {
   const navigate = useNavigate();
+  const fileRef = useRef(null);
   const { disconnectSocket } = useCallSystemContext();
-  const [dirty, setDirty] = useState(false);
-  const [profile, setProfile] = useState(initialProfile);
-  const [avatar, setAvatar] = useState(() => localStorage.getItem('avatarChoice') || 'alex');
-  const [sheet, setSheet] = useState(null);
-  const [accessibility, setAccessibility] = useState({
-    textSize: 14,
-    highContrast: false,
-    avatarSpeed: 1,
-    subtitles: true,
-    vibration: true,
-    colorBlind: 'Aucun',
-  });
-  const [notifications, setNotifications] = useState({
-    enabled: true,
-    sessionReminders: true,
-    appUpdates: false,
-    sounds: true,
-    vibration: true,
-  });
-  const [security, setSecurity] = useState({
-    biometric: true,
-  });
-
-  const profileComplete = useMemo(
-    () => Object.values(profile).every(value => String(value).trim().length > 0),
-    [profile]
-  );
-
-  const fullName = `${profile.firstName} ${profile.lastName}`.trim();
-
-  const markDirty = () => setDirty(true);
-
-  const updateAvatar = (nextAvatar) => {
-    setAvatar(nextAvatar);
-    localStorage.setItem('avatarChoice', nextAvatar);
-    markDirty();
-  };
-
-  const updateAccessibility = (key, value) => {
-    setAccessibility(prev => ({ ...prev, [key]: value }));
-    markDirty();
-  };
-
-  const updateNotifications = (key, value) => {
-    setNotifications(prev => ({ ...prev, [key]: value }));
-    markDirty();
-  };
-
-  const updateSecurity = (key, value) => {
-    setSecurity(prev => ({ ...prev, [key]: value }));
-    markDirty();
-  };
-
-  const openFieldSheet = (field) => {
-    setSheet({
-      type: 'field',
-      title: field.label,
-      field,
-      value: profile[field.key],
-    });
-  };
-
-  const openSimpleSheet = (title, message, options = null) => {
-    setSheet({ type: 'simple', title, message, options });
-  };
-
-  const confirmFieldSheet = () => {
-    if (!sheet || sheet.type !== 'field') return;
-    setProfile(prev => ({ ...prev, [sheet.field.key]: sheet.value }));
-    setSheet(null);
-    markDirty();
-  };
-
-  const saveSettings = () => {
-    localStorage.setItem('wakwak_profile_data', JSON.stringify({ profile, accessibility, notifications, security }));
-    localStorage.setItem('avatarChoice', avatar);
-    setDirty(false);
-    setSheet({ type: 'simple', title: 'Enregistré', message: 'Vos paramètres ont été sauvegardés.' });
-  };
+  const [profile, setProfile] = useState(null);
+  const [savedProfile, setSavedProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [feedback, setFeedback] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [passwords, setPasswords] = useState({ current: '', next: '', confirm: '' });
+  const [passwordFeedback, setPasswordFeedback] = useState(null);
+  const [showPasswords, setShowPasswords] = useState(false);
+  const [passwordSaving, setPasswordSaving] = useState(false);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('wakwak_profile_data');
-      if (saved) {
-        const data = JSON.parse(saved);
-        if (data.profile) setProfile(data.profile);
-        if (data.accessibility) setAccessibility(data.accessibility);
-        if (data.notifications) setNotifications(data.notifications);
-        if (data.security) setSecurity(data.security);
+    const timer = window.setTimeout(() => {
+      try {
+        const user = getVoxManusUser();
+        if (!user) throw new Error('Compte utilisateur introuvable.');
+        const base = getInitialProfile(user);
+        const stored = JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}');
+        const loaded = { ...base, ...(stored.profile || stored), role: user.role, phone: stored.profile?.phone || stored.phone || user.phoneNumber };
+        setProfile(loaded);
+        setSavedProfile(loaded);
+      } catch (error) {
+        setLoadError(error.message || 'Impossible de charger le profil.');
+      } finally {
+        setLoading(false);
       }
-    } catch {
-      /* ignore */
-    }
+    }, 450);
+    return () => window.clearTimeout(timer);
   }, []);
 
-  const confirmDelete = () => {
-    localStorage.removeItem('wakwak_profile_data');
-    localStorage.removeItem('wakwak_user');
-    localStorage.removeItem('userPhone');
+  const role = variant === 'hearing' || profile?.role === 'hearing' ? 'hearing' : 'deaf';
+  const homePath = role === 'hearing' ? '/entendant/accueil' : '/accueil';
+  const dirty = profile && savedProfile && JSON.stringify(profile) !== JSON.stringify(savedProfile);
+
+  const updateProfile = (key, value) => {
+    setProfile((current) => ({ ...current, [key]: value }));
+    setFeedback(null);
+  };
+
+  const handlePhoto = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setFeedback({ type: 'error', text: 'Sélectionnez une image valide.' });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setFeedback({ type: 'error', text: 'L’image doit peser moins de 2 Mo.' });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => updateProfile('avatar', reader.result);
+    reader.onerror = () => setFeedback({ type: 'error', text: 'Impossible de lire cette image.' });
+    reader.readAsDataURL(file);
+  };
+
+  const cancelChanges = () => {
+    setProfile(savedProfile);
+    setFeedback({ type: 'info', text: 'Les modifications ont été annulées.' });
+  };
+
+  const saveProfile = async (event) => {
+    event?.preventDefault?.();
+    if (!profile.firstName.trim() || !profile.phone.trim()) {
+      setFeedback({ type: 'error', text: 'Le prénom et le numéro de téléphone sont obligatoires.' });
+      return;
+    }
+    if (profile.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email)) {
+      setFeedback({ type: 'error', text: 'Saisissez une adresse e-mail valide.' });
+      return;
+    }
+    setSaving(true);
+    setFeedback(null);
+    await new Promise((resolve) => window.setTimeout(resolve, 650));
+    try {
+      const currentUser = getVoxManusUser();
+      saveVoxManusUser({
+        ...currentUser,
+        name: `${profile.firstName} ${profile.lastName}`.trim(),
+        phoneNumber: profile.phone,
+        role: profile.role,
+        avatar: profile.avatar,
+      });
+      localStorage.setItem(PROFILE_KEY, JSON.stringify({ profile }));
+      setSavedProfile(profile);
+      setFeedback({ type: 'success', text: 'Profil enregistré avec succès.' });
+      window.dispatchEvent(new CustomEvent('voxmanus-notification', {
+        detail: { title: 'Profil mis à jour', type: 'success', message: 'Vos nouvelles informations sont enregistrées.' },
+      }));
+    } catch {
+      setFeedback({ type: 'error', text: 'Échec de l’enregistrement. Réessayez.' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const changePassword = async (event) => {
+    event.preventDefault();
+    setPasswordFeedback(null);
+    if (passwords.current.length < 6) {
+      setPasswordFeedback({ type: 'error', text: 'Le mot de passe actuel doit contenir au moins 6 caractères.' });
+      return;
+    }
+    if (passwords.next.length < 8 || !/[A-Z]/.test(passwords.next) || !/[0-9]/.test(passwords.next)) {
+      setPasswordFeedback({ type: 'error', text: 'Le nouveau mot de passe doit contenir 8 caractères, une majuscule et un chiffre.' });
+      return;
+    }
+    if (passwords.next !== passwords.confirm) {
+      setPasswordFeedback({ type: 'error', text: 'Les nouveaux mots de passe ne correspondent pas.' });
+      return;
+    }
+    setPasswordSaving(true);
+    const { res, data } = await changePasswordRequest({
+      currentPassword: passwords.current,
+      newPassword: passwords.next,
+    });
+    setPasswordSaving(false);
+    if (!res.ok) {
+      setPasswordFeedback({ type: 'error', text: data?.error || 'Impossible de modifier le mot de passe.' });
+      return;
+    }
+    setPasswords({ current: '', next: '', confirm: '' });
+    setPasswordFeedback({ type: 'success', text: 'Mot de passe modifié avec succès.' });
+  };
+
+  const deleteAccount = () => {
+    localStorage.removeItem(PROFILE_KEY);
     localStorage.removeItem('sessions');
-    localStorage.removeItem('wakwak_contacts');
-    localStorage.removeItem('avatarChoice');
-    setSheet(null);
-    setDirty(false);
+    localStorage.removeItem('voxmanus_contacts');
+    setConfirmAction(null);
     performLogout(navigate, disconnectSocket);
   };
 
+  if (loading) {
+    return (
+      <div className="vox-settings">
+        <div className="vox-settings__skeleton vox-skeleton" />
+        <div className="vox-settings__skeleton vox-skeleton" />
+        <div className="vox-settings__skeleton vox-skeleton" />
+      </div>
+    );
+  }
+
+  if (loadError || !profile) {
+    return (
+      <div className="vox-settings vox-settings--error">
+        <AlertCircle size={32} />
+        <h1>Impossible de charger le profil</h1>
+        <p>{loadError}</p>
+        <button type="button" className="vox-button vox-button--blue" onClick={() => window.location.reload()}>Réessayer</button>
+      </div>
+    );
+  }
+
   return (
-    <>
-    <div
-      className="fixed left-0 right-0 top-0 mx-auto flex h-[calc(100vh-65px)] w-full max-w-md flex-col overflow-hidden bg-[#F0F2F5] font-sans text-[#1F2937] animate-fade-in"
-    >
-      <header className="grid h-[52px] shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-[#E5E7EB] bg-white px-4">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="justify-self-start flex items-center gap-1 text-[13px] font-bold text-[#4F46E5] active:scale-95"
-        >
-          <ArrowLeft size={16} strokeWidth={2.5} />
-          Retour
-        </button>
-        <h1 className="text-[16px] font-bold text-[#1F2937]">Paramètres</h1>
-        <div className="justify-self-end">
-          {dirty && (
-            <button
-              type="button"
-              onClick={saveSettings}
-              className="flex items-center gap-1 text-[13px] font-bold text-[#4F46E5] active:scale-95"
-            >
-              <Check size={16} strokeWidth={2.5} />
-              Sauvegarder
-            </button>
-          )}
+    <div className="vox-settings">
+      <header className="vox-settings__topbar">
+        <button type="button" className="vox-icon-button" onClick={() => navigate(homePath)} aria-label="Retour au tableau de bord"><ArrowLeft size={19} /></button>
+        <BrandLogo compact />
+        <div>
+          <button type="button" className="vox-button vox-button--outline" onClick={cancelChanges} disabled={!dirty || saving}><X size={16} /> Annuler</button>
+          <button type="button" className="vox-button vox-button--primary" onClick={saveProfile} disabled={!dirty || saving}>
+            {saving ? <span className="vox-spinner" /> : <Save size={16} />} {saving ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto scroll-smooth pb-5">
-        <section className="m-4 rounded-[20px] bg-white p-5 text-center shadow-[0_2px_12px_rgba(0,0,0,0.08)]">
-          <div className="relative mx-auto h-20 w-20">
-            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#4F46E5] to-[#9333EA] text-[24px] font-extrabold text-white shadow-inner">
-              {profile.firstName.charAt(0)}{profile.lastName.charAt(0)}
+      <main className="vox-settings__main">
+        <div className="vox-settings__heading">
+          <div><span className="vox-eyebrow">Compte VoxManus</span><h1>Profil et paramètres</h1><p>Gérez vos informations personnelles, votre sécurité et vos préférences.</p></div>
+          <span className="vox-role-badge"><ShieldCheck size={15} /> {role === 'hearing' ? 'Personne entendante' : 'Personne sourde'}</span>
+        </div>
+
+        {feedback && (
+          <div className={`vox-form-feedback vox-form-feedback--${feedback.type}`} role="status">
+            {feedback.type === 'success' ? <CheckCircle2 size={17} /> : feedback.type === 'error' ? <AlertCircle size={17} /> : <Bell size={17} />}
+            {feedback.text}
+          </div>
+        )}
+
+        <div className="vox-settings-grid">
+          <aside className="vox-profile-card">
+            <div className="vox-profile-avatar">
+              {profile.avatar ? <img src={profile.avatar} alt={`Photo de ${profile.firstName}`} /> : <UserRound size={40} />}
+              <button type="button" onClick={() => fileRef.current?.click()} aria-label="Changer la photo de profil"><Camera size={17} /></button>
+              <input ref={fileRef} type="file" accept="image/*" onChange={handlePhoto} hidden />
             </div>
-            <button
-              type="button"
-              onClick={() => openSimpleSheet('Photo de profil', 'Choisissez une nouvelle photo depuis votre appareil.')}
-              className="absolute bottom-0 right-0 flex h-[26px] w-[26px] items-center justify-center rounded-full bg-[#4F46E5] text-white shadow-md active:scale-95"
-            >
-              <Camera size={16} />
-            </button>
+            <h2>{profile.firstName} {profile.lastName}</h2>
+            <p>{profile.email || 'E-mail non renseigné'}</p>
+            <span>{role === 'hearing' ? 'Compte entendant' : 'Compte sourd'}</span>
+            <button type="button" className="vox-button vox-button--outline w-full" onClick={() => fileRef.current?.click()}><Camera size={16} /> Changer la photo</button>
+            {profile.avatar && <button type="button" className="vox-text-danger" onClick={() => updateProfile('avatar', null)}>Supprimer la photo</button>}
+          </aside>
+
+          <div className="vox-settings__content">
+            <form className="vox-settings-card" onSubmit={saveProfile}>
+              <div className="vox-settings-card__title"><User size={19} /><div><h2>Informations du compte</h2><p>Données du propriétaire du compte.</p></div></div>
+              <div className="vox-form-grid">
+                <label className="vox-field"><span>Prénom *</span><input value={profile.firstName} onChange={(event) => updateProfile('firstName', event.target.value)} /></label>
+                <label className="vox-field"><span>Nom</span><input value={profile.lastName} onChange={(event) => updateProfile('lastName', event.target.value)} /></label>
+                <label className="vox-field"><span><Mail size={13} /> E-mail</span><input type="email" value={profile.email} onChange={(event) => updateProfile('email', event.target.value)} placeholder="nom@exemple.com" /></label>
+                <label className="vox-field"><span><Phone size={13} /> Téléphone *</span><input type="tel" value={profile.phone} onChange={(event) => updateProfile('phone', event.target.value)} /></label>
+                <label className="vox-field"><span>Type de compte</span><select value={profile.role} onChange={(event) => updateProfile('role', event.target.value)}><option value="deaf">Personne sourde</option><option value="hearing">Personne entendante</option></select></label>
+                <label className="vox-field"><span><Languages size={13} /> Langue</span><select value={profile.language} onChange={(event) => updateProfile('language', event.target.value)}><option>Français</option><option>English</option><option>العربية</option></select></label>
+              </div>
+            </form>
+
+            <form className="vox-settings-card" onSubmit={changePassword}>
+              <div className="vox-settings-card__title"><KeyRound size={19} /><div><h2>Changer le mot de passe</h2><p>Utilisez un mot de passe unique et difficile à deviner.</p></div><button type="button" className="vox-icon-button" onClick={() => setShowPasswords((show) => !show)} aria-label="Afficher ou masquer les mots de passe">{showPasswords ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
+              <div className="vox-form-grid">
+                <label className="vox-field vox-field--full"><span>Mot de passe actuel</span><input type={showPasswords ? 'text' : 'password'} value={passwords.current} onChange={(event) => setPasswords((current) => ({ ...current, current: event.target.value }))} /></label>
+                <label className="vox-field"><span>Nouveau mot de passe</span><input type={showPasswords ? 'text' : 'password'} value={passwords.next} onChange={(event) => setPasswords((current) => ({ ...current, next: event.target.value }))} /></label>
+                <label className="vox-field"><span>Confirmer</span><input type={showPasswords ? 'text' : 'password'} value={passwords.confirm} onChange={(event) => setPasswords((current) => ({ ...current, confirm: event.target.value }))} /></label>
+              </div>
+              {passwordFeedback && <div className={`vox-form-feedback vox-form-feedback--${passwordFeedback.type}`}>{passwordFeedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}{passwordFeedback.text}</div>}
+              <button type="submit" className="vox-button vox-button--blue" disabled={passwordSaving}>
+                {passwordSaving ? <span className="vox-spinner" /> : <KeyRound size={16} />}
+                {passwordSaving ? 'Modification…' : 'Modifier le mot de passe'}
+              </button>
+            </form>
+
+            <section className="vox-settings-card">
+              <div className="vox-settings-card__title"><Bell size={19} /><div><h2>Préférences</h2><p>Personnalisez votre expérience VoxManus.</p></div></div>
+              <div className="vox-preference-row"><div><strong>Notifications</strong><span>Recevoir les alertes d’appels et de sessions.</span></div><Toggle checked={profile.notifications} onChange={(value) => updateProfile('notifications', value)} label="Notifications" /></div>
+              <div className="vox-preference-row"><div><strong>Thème de l’application</strong><span>Le mode clair VoxManus garantit un contraste accessible.</span></div><span className="vox-status vox-status--success">Clair</span></div>
+            </section>
+
+            <section className="vox-settings-card vox-settings-card--danger">
+              <div className="vox-settings-card__title"><AlertCircle size={19} /><div><h2>Zone sensible</h2><p>Ces actions nécessitent une confirmation.</p></div></div>
+              <div className="vox-danger-actions">
+                <button type="button" className="vox-button vox-button--outline" onClick={() => setConfirmAction('logout')}><LogOut size={16} /> Se déconnecter</button>
+                <button type="button" className="vox-button vox-button--danger" onClick={() => setConfirmAction('delete')}><Trash2 size={16} /> Supprimer le compte</button>
+              </div>
+            </section>
           </div>
-          <div className="mt-3 text-[18px] font-bold text-[#1F2937]">{fullName}</div>
-          <div className="mt-1 text-[13px] font-medium text-[#6B7280]">Utilisateur sourd</div>
-          <div className={`mx-auto mt-3 inline-flex items-center gap-1 rounded-full px-3 py-1 text-[12px] font-bold ${
-            profileComplete ? 'bg-[#F0FDF4] text-[#16A34A]' : 'bg-[#FFFBEB] text-[#D97706]'
-          }`}>
-            {profileComplete ? <Check size={14} /> : <AlertTriangle size={14} />}
-            {profileComplete ? 'Profil complet' : 'Profil incomplet'}
-          </div>
-        </section>
-
-        <SectionTitle>Informations</SectionTitle>
-        <SettingsCard>
-          {personalFields.map(field => (
-            <Row
-              key={field.key}
-              icon={field.icon}
-              label={field.label}
-              value={profile[field.key]}
-              onClick={() => openFieldSheet(field)}
-            />
-          ))}
-        </SettingsCard>
-
-        <SectionTitle>Avatar</SectionTitle>
-        <SettingsCard className="p-4">
-          <div className="text-[14px] font-bold text-[#1F2937]">Votre interprète virtuel</div>
-          <p className="mt-1 text-[12px] font-medium leading-relaxed text-[#6B7280]">
-            Choisissez l'avatar qui vous accompagne pendant vos sessions
-          </p>
-          <div className="mt-4 flex gap-3">
-            <AvatarChoiceCard
-              active={avatar === 'alex'}
-              name="Alex"
-              description="Masculin · Professionnel"
-              tone="bg-gradient-to-b from-[#E0E7FF] to-[#C7D2FE]"
-              onClick={() => updateAvatar('alex')}
-            />
-            <AvatarChoiceCard
-              active={avatar === 'frizitta'}
-              name="Frizita"
-              description="Féminin · Chaleureux"
-              tone="bg-gradient-to-b from-[#FCE7F3] to-[#DDD6FE]"
-              onClick={() => updateAvatar('frizitta')}
-            />
-          </div>
-        </SettingsCard>
-
-        <SectionTitle>Accessibilité</SectionTitle>
-        <SettingsCard>
-          <Row icon={Type} label="Taille du texte">
-            <SliderControl value={accessibility.textSize} min={12} max={20} suffix="px" onChange={(value) => updateAccessibility('textSize', value)} />
-          </Row>
-          <Row icon={Contrast} label="Contraste élevé">
-            <Toggle checked={accessibility.highContrast} onChange={(value) => updateAccessibility('highContrast', value)} />
-          </Row>
-          <Row icon={Gauge} label="Vitesse avatar">
-            <SliderControl value={accessibility.avatarSpeed} min={0.5} max={2} step={0.5} suffix="x" onChange={(value) => updateAccessibility('avatarSpeed', value)} />
-          </Row>
-          <Row icon={Captions} label="Sous-titres toujours visibles">
-            <Toggle checked={accessibility.subtitles} onChange={(value) => updateAccessibility('subtitles', value)} />
-          </Row>
-          <Row icon={Vibrate} label="Vibration retour gant">
-            <Toggle checked={accessibility.vibration} onChange={(value) => updateAccessibility('vibration', value)} />
-          </Row>
-          <Row
-            icon={Eye}
-            label="Mode daltonien"
-            value={accessibility.colorBlind}
-            onClick={() => setSheet({ type: 'accessibility-select', title: 'Mode daltonien', value: accessibility.colorBlind })}
-          />
-        </SettingsCard>
-
-        <SectionTitle>Notifications</SectionTitle>
-        <SettingsCard>
-          <Row icon={Bell} label="Notifications activées">
-            <Toggle checked={notifications.enabled} onChange={(value) => updateNotifications('enabled', value)} />
-          </Row>
-          <Row icon={Calendar} label="Rappels de session">
-            <Toggle checked={notifications.sessionReminders} onChange={(value) => updateNotifications('sessionReminders', value)} />
-          </Row>
-          <Row icon={Package} label="Mises à jour de l'app">
-            <Toggle checked={notifications.appUpdates} onChange={(value) => updateNotifications('appUpdates', value)} />
-          </Row>
-          <Row icon={Volume2} label="Sons de notification">
-            <Toggle checked={notifications.sounds} onChange={(value) => updateNotifications('sounds', value)} />
-          </Row>
-          <Row icon={Vibrate} label="Vibration">
-            <Toggle checked={notifications.vibration} onChange={(value) => updateNotifications('vibration', value)} />
-          </Row>
-        </SettingsCard>
-
-        <SectionTitle>Sécurité</SectionTitle>
-        <SettingsCard>
-          <Row icon={KeyRound} label="Changer le mot de passe" onClick={() => openSimpleSheet('Changer le mot de passe', 'Un lien sécurisé sera envoyé à votre email.')} />
-          <Row icon={Eye} label="Authentification biométrique">
-            <Toggle checked={security.biometric} onChange={(value) => updateSecurity('biometric', value)} />
-          </Row>
-          <Row icon={MonitorSmartphone} label="Appareils connectés" onClick={() => openSimpleSheet('Appareils connectés', 'Téléphone principal · Navigateur web · Tablette familiale')} />
-          <Row icon={Lock} label="Verrouillage automatique" value="5 min" onClick={() => openSimpleSheet('Verrouillage automatique', 'Choisissez un délai de verrouillage.', ['1 min', '5 min', '15 min', 'Jamais'])} />
-          <Row icon={ClipboardList} label="Historique des sessions" onClick={() => navigate('/historique')} />
-        </SettingsCard>
-
-        <SectionTitle>Application</SectionTitle>
-        <SettingsCard>
-          <Row icon={Globe2} label="Langue de l'interface" value="Français" onClick={() => openSimpleSheet("Langue de l'interface", 'Français est actuellement sélectionné.', ['Français', 'English', 'العربية'])} />
-          <Row icon={Palette} label="Thème" value="Clair" onClick={() => openSimpleSheet('Thème', 'Choisissez un thème pour l’application.', ['Clair', 'Sombre', 'Auto'])} />
-          <Row icon={Package} label="Version" value="1.0.0" onClick={() => openSimpleSheet('Version', "L'application est à jour.")} />
-          <Row icon={FileText} label="Conditions d'utilisation" onClick={() => openSimpleSheet("Conditions d'utilisation", 'Les conditions seront affichées ici.')} />
-          <Row icon={ShieldCheck} label="Politique de confidentialité" onClick={() => openSimpleSheet('Politique de confidentialité', 'Votre confidentialité reste protégée.')} />
-          <Row icon={MessageCircle} label="Contacter le support" onClick={() => openSimpleSheet('Support', 'support@wakwak.app')} />
-          <Row icon={Star} label="Noter l'application" onClick={() => openSimpleSheet("Noter l'application", 'Merci pour votre retour.')} />
-        </SettingsCard>
-
-        <SectionTitle danger>Zone danger</SectionTitle>
-        <SettingsCard danger>
-          <Row icon={LogOut} label="Se déconnecter" danger onClick={() => setSheet({ type: 'logout' })} />
-          <Row icon={Trash2} label="Supprimer mon compte" danger bold onClick={() => setSheet({ type: 'delete' })} />
-        </SettingsCard>
+        </div>
       </main>
 
-    </div>
-
-      {sheet && (
-        <div className="fixed inset-x-0 top-0 bottom-[65px] z-[10000] flex items-end justify-center bg-black/35">
-          <div className="max-h-[calc(100vh-89px)] w-full max-w-md overflow-y-auto rounded-t-[24px] bg-white p-5 shadow-2xl animate-fade-in">
-            {sheet.type === 'field' && (
-              <>
-                <h2 className="text-[16px] font-bold text-[#1F2937]">{sheet.title}</h2>
-                {sheet.field.type === 'select' ? (
-                  <select
-                    value={sheet.value}
-                    onChange={(event) => setSheet(prev => ({ ...prev, value: event.target.value }))}
-                    className="mt-4 h-12 w-full rounded-[12px] border border-[#E5E7EB] bg-white px-3 text-[14px] font-semibold text-[#1F2937] outline-none focus:border-[#4F46E5]"
-                  >
-                    {sheet.field.options.map(option => <option key={option}>{option}</option>)}
-                  </select>
-                ) : (
-                  <input
-                    type={sheet.field.type}
-                    value={sheet.value}
-                    onChange={(event) => setSheet(prev => ({ ...prev, value: event.target.value }))}
-                    className="mt-4 h-12 w-full rounded-[12px] border border-[#E5E7EB] px-3 text-[14px] font-semibold text-[#1F2937] outline-none focus:border-[#4F46E5]"
-                  />
-                )}
-                <button
-                  type="button"
-                  onClick={confirmFieldSheet}
-                  className="mt-5 h-12 w-full rounded-[12px] bg-[#4F46E5] text-[14px] font-bold text-white active:scale-[0.98] flex items-center justify-center gap-2"
-                >
-                  <Check size={18} strokeWidth={2.5} />
-                  Confirmer
-                </button>
-              </>
-            )}
-
-            {sheet.type === 'accessibility-select' && (
-              <>
-                <h2 className="text-[16px] font-bold text-[#1F2937]">{sheet.title}</h2>
-                <div className="mt-4 grid gap-2">
-                  {['Aucun', 'Deutéranopie', 'Protanopie'].map(option => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => {
-                        updateAccessibility('colorBlind', option);
-                        setSheet(null);
-                      }}
-                      className={`h-11 rounded-[12px] text-[14px] font-bold ${accessibility.colorBlind === option ? 'bg-[#4F46E5] text-white' : 'bg-[#F3F4F6] text-[#1F2937]'}`}
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {sheet.type === 'simple' && (
-              <>
-                <h2 className="text-[16px] font-bold text-[#1F2937]">{sheet.title}</h2>
-                <p className="mt-2 text-[12px] font-medium leading-relaxed text-[#6B7280]">{sheet.message}</p>
-                {sheet.options && (
-                  <div className="mt-4 grid gap-2">
-                    {sheet.options.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => {
-                          if (sheet.title.includes('Langue')) {
-                            localStorage.setItem('wakwak_ui_lang', option);
-                          }
-                          if (sheet.title.includes('Thème')) {
-                            localStorage.setItem('wakwak_ui_theme', option);
-                          }
-                          if (sheet.title.includes('Verrouillage')) {
-                            localStorage.setItem('wakwak_auto_lock', option);
-                          }
-                          markDirty();
-                          setSheet(null);
-                        }}
-                        className="h-11 rounded-[12px] bg-[#F3F4F6] text-[14px] font-bold text-[#1F2937]"
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <button type="button" onClick={() => setSheet(null)} className="mt-5 h-12 w-full rounded-[12px] bg-[#4F46E5] text-[14px] font-bold text-white active:scale-[0.98] flex items-center justify-center gap-2">
-                  <X size={18} strokeWidth={2.5} />
-                  Fermer
-                </button>
-              </>
-            )}
-
-            {sheet.type === 'logout' && (
-              <>
-                <h2 className="text-[16px] font-bold text-[#1F2937]">Se déconnecter</h2>
-                <p className="mt-2 text-[12px] font-medium leading-relaxed text-[#6B7280]">
-                  Votre session locale sera fermée. Vous devrez recréer ou reconnecter votre profil.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSheet(null);
-                    performLogout(navigate, disconnectSocket);
-                  }}
-                  className="mt-5 h-12 w-full rounded-[12px] bg-[#EF4444] text-[14px] font-bold text-white active:scale-[0.98] flex items-center justify-center gap-2"
-                >
-                  <LogOut size={18} strokeWidth={2.25} />
-                  Confirmer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSheet(null)}
-                  className="mt-3 h-12 w-full rounded-[12px] bg-[#F3F4F6] text-[14px] font-bold text-[#1F2937] active:scale-[0.98] flex items-center justify-center gap-2"
-                >
-                  <X size={18} strokeWidth={2.5} />
-                  Annuler
-                </button>
-              </>
-            )}
-
-            {sheet.type === 'delete' && (
-              <>
-                <h2 className="text-[16px] font-bold text-[#EF4444]">Supprimer mon compte</h2>
-                <p className="mt-2 text-[12px] font-medium leading-relaxed text-[#6B7280]">
-                  Cette action supprimera définitivement votre profil, vos réglages et vos historiques synchronisés. Elle ne peut pas être annulée.
-                </p>
-                <button type="button" onClick={confirmDelete} className="mt-5 h-12 w-full rounded-[12px] bg-[#EF4444] text-[14px] font-bold text-white active:scale-[0.98] flex items-center justify-center gap-2">
-                  <Trash2 size={18} strokeWidth={2.25} />
-                  Confirmer la suppression
-                </button>
-                <button type="button" onClick={() => setSheet(null)} className="mt-3 h-12 w-full rounded-[12px] bg-[#F3F4F6] text-[14px] font-bold text-[#1F2937] active:scale-[0.98] flex items-center justify-center gap-2">
-                  <X size={18} strokeWidth={2.5} />
-                  Annuler
-                </button>
-              </>
-            )}
+      {confirmAction && (
+        <div className="vox-modal-backdrop">
+          <div className="vox-modal" role="dialog" aria-modal="true">
+            <span className="vox-modal__danger-icon">{confirmAction === 'delete' ? <Trash2 size={22} /> : <LogOut size={22} />}</span>
+            <h2>{confirmAction === 'delete' ? 'Supprimer définitivement le compte ?' : 'Se déconnecter de VoxManus ?'}</h2>
+            <p>{confirmAction === 'delete' ? 'Le profil, les contacts locaux et l’historique seront supprimés. Cette action est irréversible.' : 'Votre session sera fermée sur cet appareil.'}</p>
+            <div className="vox-modal__actions">
+              <button type="button" className="vox-button vox-button--outline" onClick={() => setConfirmAction(null)}>Annuler</button>
+              <button type="button" className="vox-button vox-button--danger" onClick={() => confirmAction === 'delete' ? deleteAccount() : performLogout(navigate, disconnectSocket)}>Confirmer</button>
+            </div>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
