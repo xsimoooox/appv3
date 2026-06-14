@@ -19,7 +19,7 @@ import { useFirebaseOutgoingCall } from '../hooks/useFirebaseOutgoingCall';
 import { useFirebaseWebRtcCall } from '../hooks/useFirebaseWebRtcCall';
 import { getCallRouteForPeer } from '../lib/callNavigation';
 import { normalizePhoneNumber } from '../lib/phoneUtils';
-import { getWakwakUser } from '../lib/wakwakUser';
+import { getWakwakUser, WAKWAK_USER_CHANGED_EVENT } from '../lib/wakwakUser';
 
 const CallSystemContext = createContext(null);
 
@@ -31,7 +31,19 @@ export function CallSystemProvider({ children }) {
   const pushAcceptHandledRef = useRef(false);
   const firebaseAcceptHandledRef = useRef(null);
 
-  const wakwakUser = useMemo(() => (typeof window !== 'undefined' ? getWakwakUser() : null), []);
+  const [wakwakUser, setWakwakUser] = React.useState(
+    () => (typeof window !== 'undefined' ? getWakwakUser() : null),
+  );
+
+  useEffect(() => {
+    const syncUser = () => setWakwakUser(getWakwakUser());
+    window.addEventListener(WAKWAK_USER_CHANGED_EVENT, syncUser);
+    window.addEventListener('storage', syncUser);
+    return () => {
+      window.removeEventListener(WAKWAK_USER_CHANGED_EVENT, syncUser);
+      window.removeEventListener('storage', syncUser);
+    };
+  }, []);
 
   const myPhoneNumber = useMemo(() => {
     if (typeof window === 'undefined') return SYSTEM_PHONES.deaf;
@@ -49,7 +61,7 @@ export function CallSystemProvider({ children }) {
     setTimeout(() => setCallToast(null), 2500);
   }, []);
 
-  const presenceByPhone = useFirebasePresence();
+  const presenceByPhone = useFirebasePresence(wakwakUser);
   const {
     startFirebaseCaller,
     startFirebaseCallee,
@@ -99,13 +111,6 @@ export function CallSystemProvider({ children }) {
     },
     [callSystem.activeCall, callSystem.onlineContacts, presenceByPhone, firebaseIncomingCall],
   );
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('Notification' in window)) return;
-    if (Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-  }, []);
 
   useEffect(() => {
     if (myPhoneNumber && !localStorage.getItem('userPhone')) {

@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     [`sessions/${code}/status`]: 'ended',
   };
   if (targetPhone) {
-    updates[`invites/${encodeURIComponent(targetPhone)}/${code}/status`] = 'ended';
+    updates[`invites/${String(targetPhone).trim()}/${code}/status`] = 'ended';
   }
 
   const url = new URL(`${DATABASE_URL}/.json`);

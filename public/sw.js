@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wakwak-v5';
+const CACHE_NAME = 'wakwak-v6';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 const DEFAULT_API = 'http://localhost:3001';

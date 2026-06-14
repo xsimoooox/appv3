@@ -2,6 +2,11 @@ import { normalizePhoneNumber } from './phoneUtils';
 import { setAuthToken } from './api';
 
 export const WAKWAK_USER_KEY = 'wakwak_user';
+export const WAKWAK_USER_CHANGED_EVENT = 'wakwak-user-changed';
+
+function notifyUserChanged(user) {
+  window.dispatchEvent(new CustomEvent(WAKWAK_USER_CHANGED_EVENT, { detail: user }));
+}
 
 export function isValidWakwakUser(user) {
   if (!user || typeof user !== 'object') return false;
@@ -51,6 +56,7 @@ export function saveWakwakUser(user) {
   if (user.token) {
     setAuthToken(user.token);
   }
+  notifyUserChanged(payload);
   return payload;
 }
 
@@ -61,6 +67,7 @@ export function clearWakwakUser() {
   localStorage.removeItem('userPhone');
   localStorage.removeItem('token');
   localStorage.removeItem('wakwak_token');
+  notifyUserChanged(null);
 }
 
 export function getHomeRoute(role) {

@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react';
 import { listenFirebaseValue } from '../lib/firebaseRealtime';
 import { mapPresenceSnapshot, startPresenceHeartbeat } from '../lib/presenceFirebase';
-import { getWakwakUser } from '../lib/wakwakUser';
 
-export function useFirebasePresence() {
+export function useFirebasePresence(user) {
   const [presenceByPhone, setPresenceByPhone] = useState({});
 
   useEffect(() => {
-    const user = getWakwakUser();
     if (!user) return undefined;
 
     const stopHeartbeat = startPresenceHeartbeat(user) || (() => {});
@@ -19,7 +17,7 @@ export function useFirebasePresence() {
       stopHeartbeat?.();
       stopListen?.();
     };
-  }, []);
+  }, [user]);
 
   return presenceByPhone;
 }

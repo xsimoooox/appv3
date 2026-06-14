@@ -6,7 +6,7 @@ export const CALL_INVITE_TTL_MS = 5 * 60 * 1000;
 export function invitePhoneKey(phone) {
   const normalized = normalizePhoneNumber(phone);
   if (!normalized) return '';
-  return encodeURIComponent(normalized);
+  return normalized;
 }
 
 export function invitePathForPhone(phone) {

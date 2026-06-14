@@ -10,7 +10,7 @@ let currentPresenceKey = null;
 export function phonePresenceKey(phone) {
   const normalized = normalizePhoneNumber(phone);
   if (!normalized) return '';
-  return encodeURIComponent(normalized);
+  return normalized;
 }
 
 export async function setPresence(payload) {
