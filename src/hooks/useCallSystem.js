@@ -295,7 +295,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
         /* ignore */
       }
     },
-    [myPhoneNumber, stopMic, turnHolder],
+    [myPhoneNumber, stopMic],
   );
 
   const initiateWebRtcCall = useCallback(
@@ -646,19 +646,106 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
   ]);
 
   const acceptCallFromPush = useCallback(
-    (callerPhone) => {
+    async (callerPhone) => {
       const phone = (callerPhone || '').trim();
       if (!phone || !myPhoneNumber) return;
       clearCallTimeout();
       stopRingtone();
-      getSocket()?.emit('accept_call', {
-        callerPhone: phone,
-        targetPhone: myPhoneNumber,
-      });
       setActiveCall({ withPhone: phone, startTime: Date.now() });
       setIncomingCall(null);
+
+      const user = getWakwakUser();
+      const socket = getSocket() || (user?.id ? initSocket(user) : null);
+      if (!socket) return;
+
+      const waitUntilReady = () => new Promise((resolve, reject) => {
+        if (socket.connected && isRegistered) {
+          resolve();
+          return;
+        }
+        const cleanup = () => {
+          clearTimeout(timer);
+          socket.off('register_confirmed', ready);
+          socket.off('connect_error', failed);
+        };
+        const ready = () => {
+          cleanup();
+          resolve();
+        };
+        const failed = () => {
+          cleanup();
+          reject(new Error('socket indisponible'));
+        };
+        const timer = setTimeout(failed, 5000);
+        socket.once('register_confirmed', ready);
+        socket.once('connect_error', failed);
+        if (socket.connected) {
+          socket.emit('register_user', {
+            userId: String(user?.id || myPhoneNumber),
+            phoneNumber: myPhoneNumber,
+          });
+        }
+      });
+
+      try {
+        await waitUntilReady();
+
+        const offerPromise = new Promise((resolve) => {
+          const timer = setTimeout(() => {
+            socket.off('push_call_offer', handleOffer);
+            resolve(null);
+          }, 1500);
+          const handleOffer = (payload) => {
+            if (payload?.callerPhone && payload.callerPhone !== phone) return;
+            clearTimeout(timer);
+            socket.off('push_call_offer', handleOffer);
+            resolve(payload);
+          };
+          socket.on('push_call_offer', handleOffer);
+        });
+
+        socket.emit('accept_call', {
+          callerPhone: phone,
+          targetPhone: myPhoneNumber,
+        });
+
+        const pending = await offerPromise;
+        if (!pending?.offer) return;
+
+        cleanupPeerConnection();
+        localStreamRef.current = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: false,
+        });
+        peerConnectionRef.current = new RTCPeerConnection(RTC_CONFIG);
+        localStreamRef.current
+          .getTracks()
+          .forEach((track) => peerConnectionRef.current.addTrack(track, localStreamRef.current));
+        setupPeerIceHandler(pending.callerId || phone);
+        await peerConnectionRef.current.setRemoteDescription(
+          new RTCSessionDescription(pending.offer),
+        );
+        const answer = await peerConnectionRef.current.createAnswer();
+        await peerConnectionRef.current.setLocalDescription(answer);
+        socket.emit('answer_call', {
+          callerId: String(pending.callerId || phone),
+          answer,
+          callerPhone: phone,
+          targetPhone: myPhoneNumber,
+        });
+      } catch (error) {
+        onToast?.(`Audio en cours de connexion : ${error.message}`, 'info');
+      }
     },
-    [myPhoneNumber, clearCallTimeout, stopRingtone],
+    [
+      myPhoneNumber,
+      isRegistered,
+      clearCallTimeout,
+      stopRingtone,
+      cleanupPeerConnection,
+      setupPeerIceHandler,
+      onToast,
+    ],
   );
 
   const callUser = useCallback(

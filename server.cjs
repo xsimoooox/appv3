@@ -35,6 +35,7 @@ const onlineUsers = new Map();
 const phoneToUserId = new Map();
 const pushSubscriptions = new Map();
 const callTurns = new Map();
+const pendingSocketCalls = new Map();
 
 function cleanPhone(phoneNumber) {
   return normalizePhoneNumber(phoneNumber);
@@ -271,6 +272,16 @@ io.on('connection', (socket) => {
   socket.on('call_user', async (data) => {
     const hasUserIds = data?.callerId && data?.targetUserId;
 
+    if (data?.offer && data?.targetPhone && socket.data.phoneNumber) {
+      pendingSocketCalls.set(callPairKey(socket.data.phoneNumber, data.targetPhone), {
+        callerId: data.callerId || socket.userId,
+        callerPhone: socket.data.phoneNumber,
+        targetPhone: cleanPhone(data.targetPhone),
+        offer: data.offer,
+        createdAt: Date.now(),
+      });
+    }
+
     if (hasUserIds) {
       const callerStr = String(data.callerId);
       const targetStr = String(data.targetUserId);
@@ -458,6 +469,11 @@ io.on('connection', (socket) => {
         by: target,
         timestamp: Date.now(),
       });
+      socket.emit('call_accepted', {
+        by: caller,
+        timestamp: Date.now(),
+      });
+      pendingSocketCalls.delete(callPairKey(caller, target));
       io.emit('user_status_change', { phoneNumber: caller, status: 'busy' });
       io.emit('user_status_change', { phoneNumber: target, status: 'busy' });
     }
@@ -470,11 +486,19 @@ io.on('connection', (socket) => {
     const cleanTarget = cleanPhone(targetPhone);
     const key = callPairKey(cleanCaller, cleanTarget);
     joinCallRoom(cleanCaller, cleanTarget);
+    const pending = pendingSocketCalls.get(callPairKey(cleanCaller, cleanTarget));
+    if (pending?.offer) {
+      socket.emit('push_call_offer', pending);
+    }
     callTurns.set(key, cleanCaller);
     emitTurnChange(cleanCaller, cleanTarget, cleanCaller);
     if (callerSocketId) {
       io.to(callerSocketId).emit('call_accepted', {
         by: cleanTarget,
+        timestamp: Date.now(),
+      });
+      socket.emit('call_accepted', {
+        by: cleanCaller,
         timestamp: Date.now(),
       });
       io.emit('user_status_change', { phoneNumber: cleanCaller, status: 'busy' });
@@ -554,6 +578,7 @@ io.on('connection', (socket) => {
     }
     if (callerPhone && targetPhone) {
       callTurns.delete(callPairKey(callerPhone, targetPhone));
+      pendingSocketCalls.delete(callPairKey(callerPhone, targetPhone));
       leaveCallRoom(callerPhone, targetPhone);
       const otherPhone =
         socket.data.phoneNumber === cleanPhone(callerPhone)

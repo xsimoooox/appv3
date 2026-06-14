@@ -185,11 +185,8 @@ export function CallSystemProvider({ children }) {
     const cleanPath = location.pathname === '/' ? '/' : location.pathname;
     window.history.replaceState({}, '', cleanPath);
 
-    const timer = setTimeout(() => {
-      callSystem.acceptCallFromPush(callerPhone);
-    }, 600);
-
-    return () => clearTimeout(timer);
+    callSystem.acceptCallFromPush(callerPhone);
+    return undefined;
   }, [
     location.search,
     location.pathname,

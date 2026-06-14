@@ -64,6 +64,7 @@ export function initSocket(user) {
     socket.on('connect', () => {
       console.log('[SOCKET] Connecté:', socket.id);
       socketError = null;
+      registeredUserId = String(user.id);
       registerUser(user);
     });
 
