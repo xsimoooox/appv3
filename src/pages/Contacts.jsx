@@ -42,6 +42,7 @@ import {
   getClientUid,
   getStoredSessionCode,
   joinRealtimeCall,
+  liveTranscriptPathForPhone,
   listenFirebaseValue,
   registerNotificationPreference,
   storeSessionCode,
@@ -1027,6 +1028,38 @@ export default function Contacts() {
       clearTimeout(avatarTranscriptTimerRef.current);
     };
   }, [screen, activeSessionCode, avatarMode, frizittaDb, alexDb]);
+
+  useEffect(() => {
+    if (screen !== 'call') return undefined;
+    const phonePath = liveTranscriptPathForPhone(getWakwakUser()?.phoneNumber || '');
+    if (!phonePath) return undefined;
+
+    const applyPhoneTranscript = (transcript) => {
+      if (!transcript || typeof transcript !== 'object') return;
+      const timestamp = Number(transcript.timestamp) || 0;
+      if (timestamp && timestamp < lastTranscriptTimestampRef.current) return;
+      if (timestamp) lastTranscriptTimestampRef.current = timestamp;
+      if (transcript.code && transcript.code !== activeSessionCode) {
+        storeSessionCode(transcript.code);
+        setSessionCodeInput(transcript.code);
+        setActiveSessionCode(transcript.code);
+      }
+      if (!transcript.text) return;
+      setRemoteTranscript(transcript);
+      setInterlocuteurDit(transcript.text);
+      setIsSpeaking(!transcript.isFinal);
+    };
+
+    const stop = listenFirebaseValue(phonePath, applyPhoneTranscript, setRealtimeConnection);
+    const poll = setInterval(() => {
+      getFirebaseData(phonePath).then(applyPhoneTranscript).catch(() => {});
+    }, 300);
+
+    return () => {
+      stop();
+      clearInterval(poll);
+    };
+  }, [screen, activeSessionCode]);
 
   const processIncomingVoiceText = useCallback((text) => {
     const cleaned = (text || '').trim();

@@ -66,6 +66,11 @@ export function storeSessionCode(code) {
   writeStorage('wakwak_active_session_code', code);
 }
 
+export function liveTranscriptPathForPhone(phone) {
+  const phoneKey = invitePhoneKey(phone);
+  return phoneKey ? `liveTranscripts/${phoneKey}` : '';
+}
+
 export async function setFirebaseData(path, data) {
   const response = await fetch(pathUrl(path), {
     method: 'PUT',
@@ -243,6 +248,13 @@ export async function createRealtimeCall({
       code,
       callerUid,
     };
+    updates[`liveTranscripts/${phoneKey}`] = {
+      code,
+      text: '',
+      isFinal: true,
+      timestamp,
+      lang,
+    };
   }
 
   await updateFirebaseData('', updates);
@@ -303,20 +315,25 @@ export async function touchRealtimeCall(code) {
   await updateFirebaseData(`sessions/${code}`, { lastActivity: now });
 }
 
-export async function sendTranscript({ code, text, isFinal, lang }) {
+export async function sendTranscript({ code, text, isFinal, lang, targetPhone = '' }) {
   const timestamp = Date.now();
   const transcript = {
+    code,
     text,
     isFinal,
     timestamp,
     lang,
   };
 
-  // Keep the live text on a small direct path so partial results are delivered
-  // immediately, independently from larger session updates.
-  await setFirebaseData(`sessions/${code}/liveTranscript`, transcript);
+  const phonePath = liveTranscriptPathForPhone(targetPhone);
+  if (phonePath) {
+    await setFirebaseData(phonePath, transcript);
+  } else {
+    await setFirebaseData(`sessions/${code}/liveTranscript`, transcript);
+  }
 
   Promise.all([
+    setFirebaseData(`sessions/${code}/liveTranscript`, transcript),
     setFirebaseData(`sessions/${code}/transcript`, transcript),
     setFirebaseData(`sessions/${code}/status`, isFinal ? 'idle' : 'speaking'),
     setFirebaseData(`sessions/${code}/voiceEvents/${timestamp}`, transcript),

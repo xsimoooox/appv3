@@ -736,6 +736,7 @@ function CallScreen({ contact }) {
   const [speechStatus, setSpeechStatus] = useState('initialisation');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const speechLang = getSpeechLang(language);
+  const transcriptTargetPhone = getContactPhone(contact);
   const { calleeJoined, calleeJoinedName } = useCalleeJoinedSignal(sessionCode);
 
   const showCallToast = (message) => {
@@ -878,6 +879,7 @@ function CallScreen({ contact }) {
           text: pending.text,
           isFinal: pending.isFinal,
           lang: speechLang,
+          targetPhone: transcriptTargetPhone,
         });
       } catch {
         setSpeechStatus('firebase indisponible');
@@ -992,7 +994,7 @@ function CallScreen({ contact }) {
       recognition.onend = null;
       recognition.stop();
     };
-  }, [speechLang, sessionCode, activeCall, emitVoiceText]);
+  }, [speechLang, sessionCode, activeCall, emitVoiceText, transcriptTargetPhone]);
 
   const time = `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
   const previewText = `${finalTranscript} ${interimTranscript}`.trim();
