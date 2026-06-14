@@ -36,6 +36,8 @@ const phoneToUserId = new Map();
 const pushSubscriptions = new Map();
 const callTurns = new Map();
 const pendingSocketCalls = new Map();
+const callTranscriptSequences = new Map();
+const PENDING_CALL_TTL_MS = 60_000;
 
 function cleanPhone(phoneNumber) {
   return normalizePhoneNumber(phoneNumber);
@@ -57,9 +59,12 @@ async function joinCallRoom(phoneA, phoneB) {
     resolveSocketIdByPhone(phoneA),
     resolveSocketIdByPhone(phoneB),
   ]);
-  socketIds
-    .filter(Boolean)
-    .forEach((socketId) => io.sockets.sockets.get(socketId)?.join(room));
+  await Promise.all(
+    socketIds.filter(Boolean).map(async (socketId) => {
+      const liveSocket = io.sockets.sockets.get(socketId);
+      if (liveSocket) await liveSocket.join(room);
+    }),
+  );
   return room;
 }
 
@@ -156,7 +161,11 @@ async function autoJoinActiveCallRooms(socket) {
   if (!phone) return;
 
   const activePairs = new Map();
-  pendingSocketCalls.forEach((call) => {
+  pendingSocketCalls.forEach((call, key) => {
+    if (Date.now() - Number(call?.createdAt || 0) > PENDING_CALL_TTL_MS) {
+      pendingSocketCalls.delete(key);
+      return;
+    }
     const caller = cleanPhone(call?.callerPhone);
     const target = cleanPhone(call?.targetPhone);
     if (caller && target && (caller === phone || target === phone)) {
@@ -371,13 +380,15 @@ io.on('connection', (socket) => {
 
   socket.on('call_user', async (data) => {
     const hasUserIds = data?.callerId && data?.targetUserId;
+    const pendingCallerPhone = cleanPhone(socket.data.phoneNumber || data?.callerPhone);
+    const pendingTargetPhone = cleanPhone(data?.targetPhone);
 
-    if (data?.offer && data?.targetPhone && socket.data.phoneNumber) {
-      pendingSocketCalls.set(callPairKey(socket.data.phoneNumber, data.targetPhone), {
+    if (pendingCallerPhone && pendingTargetPhone) {
+      pendingSocketCalls.set(callPairKey(pendingCallerPhone, pendingTargetPhone), {
         callerId: data.callerId || socket.userId,
-        callerPhone: socket.data.phoneNumber,
-        targetPhone: cleanPhone(data.targetPhone),
-        offer: data.offer,
+        callerPhone: pendingCallerPhone,
+        targetPhone: pendingTargetPhone,
+        offer: data.offer || null,
         createdAt: Date.now(),
       });
     }
@@ -580,13 +591,13 @@ io.on('connection', (socket) => {
         by: cleanTarget,
         timestamp: Date.now(),
       });
-      socket.emit('call_accepted', {
-        by: cleanCaller,
-        timestamp: Date.now(),
-      });
       io.emit('user_status_change', { phoneNumber: cleanCaller, status: 'busy' });
       io.emit('user_status_change', { phoneNumber: cleanTarget, status: 'busy' });
     }
+    socket.emit('call_accepted', {
+      by: cleanCaller,
+      timestamp: Date.now(),
+    });
   });
 
   socket.on('ice_candidate', async ({ targetUserId, candidate, targetPhone }) => {
@@ -610,22 +621,35 @@ io.on('connection', (socket) => {
         by: targetUserId || targetPhone || socket.userId,
       });
     }
+    if (callerPhone && targetPhone) {
+      const key = callPairKey(callerPhone, targetPhone);
+      pendingSocketCalls.delete(key);
+      callTranscriptSequences.delete(key);
+      leaveCallRoom(callerPhone, targetPhone);
+    }
   });
 
   socket.on('voice_text', async ({ callerPhone, targetPhone, text, isFinal = true }) => {
-    const room = await joinCallRoom(callerPhone, targetPhone);
+    const cleanCaller = cleanPhone(callerPhone || socket.data.phoneNumber);
+    const cleanTarget = cleanPhone(targetPhone);
+    const cleanText = String(text || '').trim();
+    if (!cleanCaller || !cleanTarget || !cleanText) return;
+
+    const key = callPairKey(cleanCaller, cleanTarget);
+    const sequence = (callTranscriptSequences.get(key) || 0) + 1;
+    callTranscriptSequences.set(key, sequence);
+
+    await joinCallRoom(cleanCaller, cleanTarget);
     const targetSocketId = await resolveSocketIdByPhone(targetPhone);
     const payload = {
-      from: callerPhone,
-      text,
-      isFinal,
+      from: cleanCaller,
+      targetPhone: cleanTarget,
+      text: cleanText,
+      isFinal: Boolean(isFinal),
+      sequence,
       timestamp: Date.now(),
     };
-    if (room) {
-      socket.to(room).emit('receive_voice_text', payload);
-    }
-    const targetSocket = targetSocketId ? io.sockets.sockets.get(targetSocketId) : null;
-    if (targetSocket && (!room || !targetSocket.rooms.has(room))) {
+    if (targetSocketId) {
       io.to(targetSocketId).emit('receive_voice_text', payload);
     }
   });
@@ -657,8 +681,10 @@ io.on('connection', (socket) => {
       }
     }
     if (callerPhone && targetPhone) {
-      callTurns.delete(callPairKey(callerPhone, targetPhone));
-      pendingSocketCalls.delete(callPairKey(callerPhone, targetPhone));
+      const key = callPairKey(callerPhone, targetPhone);
+      callTurns.delete(key);
+      pendingSocketCalls.delete(key);
+      callTranscriptSequences.delete(key);
       leaveCallRoom(callerPhone, targetPhone);
       const otherPhone =
         socket.data.phoneNumber === cleanPhone(callerPhone)
@@ -680,6 +706,12 @@ io.on('connection', (socket) => {
     }
     if (callerPhone) {
       io.emit('user_status_change', { phoneNumber: cleanPhone(callerPhone), status: 'online' });
+    }
+    if (callerPhone && targetPhone) {
+      const key = callPairKey(callerPhone, targetPhone);
+      pendingSocketCalls.delete(key);
+      callTranscriptSequences.delete(key);
+      leaveCallRoom(callerPhone, targetPhone);
     }
   });
 

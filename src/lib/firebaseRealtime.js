@@ -195,6 +195,7 @@ export async function createRealtimeCall({
   callerRole = 'deaf',
   targetContactId = '',
   targetPhone = '',
+  notifyTarget = true,
 }) {
   const timestamp = Date.now();
   const expiresAt = timestamp + CALL_INVITE_TTL_MS;
@@ -207,7 +208,7 @@ export async function createRealtimeCall({
     callerRole,
     targetContactId,
     targetPhone,
-    status: 'ringing',
+    status: notifyTarget ? 'ringing' : 'active',
     lang,
     createdAt: timestamp,
     expiresAt,
@@ -243,11 +244,6 @@ export async function createRealtimeCall({
     [`calls/${code}`]: callPayload,
   };
   if (targetPhone) {
-    updates[`invites/${phoneKey}/${code}`] = {
-      ...callPayload,
-      code,
-      callerUid,
-    };
     updates[`liveTranscripts/${phoneKey}`] = {
       code,
       text: '',
@@ -255,6 +251,13 @@ export async function createRealtimeCall({
       timestamp,
       lang,
     };
+    if (notifyTarget) {
+      updates[`invites/${phoneKey}/${code}`] = {
+        ...callPayload,
+        code,
+        callerUid,
+      };
+    }
   }
 
   await updateFirebaseData('', updates);
@@ -262,11 +265,13 @@ export async function createRealtimeCall({
   const targetRole = callerRole === 'deaf' ? 'hearing' : 'deaf';
   const routePrefix = targetRole === 'hearing' ? '/entendant/call' : '/call';
   const acceptUrl = `${routePrefix}/${targetContactId || (targetRole === 'hearing' ? 'amina' : 'c1')}?code=${encodeURIComponent(code)}&accept=1`;
-  fetch('/api/calls/notify', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ targetPhone, callerPhone, callerName, code, acceptUrl }),
-  }).catch(() => {});
+  if (notifyTarget) {
+    fetch('/api/calls/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetPhone, callerPhone, callerName, code, acceptUrl }),
+    }).catch(() => {});
+  }
 }
 
 export async function joinRealtimeCall({ code, uid, calleeName = '', calleePhone = '' }) {

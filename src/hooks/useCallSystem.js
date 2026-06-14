@@ -43,20 +43,28 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
   const fallbackAudioRef = useRef(null);
   const fallbackOscRef = useRef(null);
   const lastVoiceTextRef = useRef('');
+  const lastEmittedVoiceRef = useRef('');
+  const lastReceivedVoiceSequenceRef = useRef(0);
   const voiceDebounceRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const localStreamRef = useRef(null);
   const pendingCallRef = useRef(null);
+  const outgoingCallRef = useRef(null);
   const [incomingCall, setIncomingCall] = useState(null);
   const [outgoingCall, setOutgoingCall] = useState(null);
   const [activeCall, setActiveCall] = useState(null);
   const [onlineContacts, setOnlineContacts] = useState({});
   const [receivedText, setReceivedText] = useState('');
+  const [receivedTranscript, setReceivedTranscript] = useState(null);
   const [sentVoiceText, setSentVoiceText] = useState('');
   const [isRegistered, setIsRegistered] = useState(false);
   const [turnHolder, setTurnHolder] = useState(null);
 
   const resolvedUserId = myUserId || getVoxManusUser()?.id;
+
+  useEffect(() => {
+    outgoingCallRef.current = outgoingCall;
+  }, [outgoingCall]);
 
   const stopRingtone = useCallback(() => {
     if (ringtoneRef.current) {
@@ -204,8 +212,11 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
     setIncomingCall(null);
     setOutgoingCall(null);
     setReceivedText('');
+    setReceivedTranscript(null);
     setSentVoiceText('');
     lastVoiceTextRef.current = '';
+    lastEmittedVoiceRef.current = '';
+    lastReceivedVoiceSequenceRef.current = 0;
     setTurnHolder(null);
   }, [clearCallTimeout, stopMic, stopRingtone, cleanupPeerConnection]);
 
@@ -463,7 +474,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
     socket.on('call_accepted', (data) => {
       clearCallTimeout();
       stopRingtone();
-      const peerPhone = data.by || outgoingCall?.targetPhone;
+      const peerPhone = data.by || outgoingCallRef.current?.targetPhone;
       setOutgoingCall(null);
       setActiveCall({ withPhone: peerPhone, startTime: Date.now() });
       onToast?.('✅ Appel accepté', 'success');
@@ -520,11 +531,21 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
       onToast?.(`📵 ${msg}`, 'error');
     });
 
-    socket.on('receive_voice_text', ({ text }) => {
-      setReceivedText(text || '');
-      if (typeof window !== 'undefined' && window.voxmanusProcessAvatar) {
-        window.voxmanusProcessAvatar(text);
-      }
+    socket.on('receive_voice_text', (transcript) => {
+      const sequence = Number(transcript?.sequence) || 0;
+      if (sequence && sequence <= lastReceivedVoiceSequenceRef.current) return;
+      if (sequence) lastReceivedVoiceSequenceRef.current = sequence;
+
+      const next = {
+        from: transcript?.from || '',
+        targetPhone: transcript?.targetPhone || myPhoneNumber,
+        text: transcript?.text || '',
+        isFinal: transcript?.isFinal !== false,
+        sequence,
+        timestamp: Number(transcript?.timestamp) || Date.now(),
+      };
+      setReceivedTranscript(next);
+      setReceivedText(next.text);
     });
 
     socket.on('receive_sign_text', ({ text }) => {
@@ -547,7 +568,8 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
 
     return () => {
       cleanupCall();
-      socket.off('connect');
+      socket.off('connect', register);
+      socket.io.off('reconnect', register);
       socket.off('registered');
       socket.off('register_confirmed');
       socket.off('incoming_call');
@@ -579,7 +601,6 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
     stopMic,
     stopRingtone,
     vibratePhone,
-    outgoingCall,
   ]);
 
   const acceptCall = useCallback(async () => {
@@ -855,14 +876,19 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
   );
 
   const emitVoiceText = useCallback(
-    (text, isFinal = true) => {
-      if (!activeCall?.withPhone || !text?.trim()) return;
+    (text, isFinal = true, targetPhoneOverride = '') => {
+      const targetPhone = targetPhoneOverride || activeCall?.withPhone;
+      if (!targetPhone || !text?.trim()) return;
       const trimmed = text.trim();
-      if (trimmed === lastVoiceTextRef.current) return;
-      lastVoiceTextRef.current = trimmed;
-      getSocket()?.emit('voice_text', {
+      const emissionKey = `${targetPhone}|${Boolean(isFinal)}|${trimmed}`;
+      if (emissionKey === lastEmittedVoiceRef.current) return;
+
+      const socket = getSocket();
+      if (!socket?.connected) return;
+      lastEmittedVoiceRef.current = emissionKey;
+      socket.emit('voice_text', {
         callerPhone: myPhoneNumber,
-        targetPhone: activeCall.withPhone,
+        targetPhone,
         text: trimmed,
         isFinal,
       });
@@ -911,6 +937,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
     activeCall,
     onlineContacts,
     receivedText,
+    receivedTranscript,
     sentVoiceText,
     isRegistered,
     turnHolder,

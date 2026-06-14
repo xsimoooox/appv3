@@ -715,6 +715,7 @@ function CallScreen({ contact }) {
   const pendingTranscriptRef = useRef(null);
   const transcriptPublishInFlightRef = useRef(false);
   const mountedRef = useRef(false);
+  const socketCallActiveAtMountRef = useRef(Boolean(activeCall?.withPhone));
   const micOnRef = useRef(true);
   const soundOnRef = useRef(true);
   const hpOnRef = useRef(true);
@@ -804,6 +805,7 @@ function CallScreen({ contact }) {
         callerRole: 'hearing',
         targetContactId: contact.id,
         targetPhone,
+        notifyTarget: !socketCallActiveAtMountRef.current,
       });
       await touchRealtimeCall(sessionCode);
     };
@@ -863,7 +865,7 @@ function CallScreen({ contact }) {
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;
-    recognition.lang = activeCall?.withPhone ? 'en-US' : speechLang;
+    recognition.lang = speechLang;
     recognitionRef.current = recognition;
 
     const publishPendingTranscript = async () => {
@@ -955,16 +957,12 @@ function CallScreen({ contact }) {
         liveTranscriptRef.current = nextFinal;
         setFinalTranscript(nextFinal);
         setInterimTranscript('');
-        if (activeCall?.withPhone) {
-          emitVoiceText(nextFinal, true);
-        }
+        emitVoiceText(nextFinal, true, transcriptTargetPhone);
         queueTranscript(nextFinal, true);
       } else if (interim.trim()) {
         const liveText = `${finalTranscriptRef.current} ${interim}`.trim();
         setInterimTranscript(interim);
-        if (activeCall?.withPhone) {
-          emitVoiceText(liveText, false);
-        }
+        emitVoiceText(liveText, false, transcriptTargetPhone);
         queueTranscript(liveText, false);
       }
     };
@@ -995,7 +993,7 @@ function CallScreen({ contact }) {
       recognition.onend = null;
       recognition.stop();
     };
-  }, [speechLang, sessionCode, activeCall, emitVoiceText, transcriptTargetPhone]);
+  }, [speechLang, sessionCode, emitVoiceText, transcriptTargetPhone]);
 
   const time = `${Math.floor(seconds / 60).toString().padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
   const previewText = `${finalTranscript} ${interimTranscript}`.trim();

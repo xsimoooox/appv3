@@ -187,7 +187,7 @@ export default function Contacts() {
     globalLiveTranscript,
     endCall,
     sendSignText,
-    receivedText,
+    receivedTranscript,
     canSpeakTurn,
     startFirebaseOutgoing,
   } = useCallSystemContext();
@@ -266,6 +266,7 @@ export default function Contacts() {
   const pendingAvatarTextRef = useRef('');
   const lastVoiceEventRef = useRef(0);
   const lastTranscriptTimestampRef = useRef(0);
+  const socketTranscriptActiveRef = useRef(false);
 
   // Load contacts database — always reinitialize from DEFAULT if missing/empty
   useEffect(() => {
@@ -872,6 +873,7 @@ export default function Contacts() {
     pendingAvatarTextRef.current = '';
     lastVoiceEventRef.current = 0;
     lastTranscriptTimestampRef.current = 0;
+    socketTranscriptActiveRef.current = false;
     clearTimeout(avatarTranscriptTimerRef.current);
 
     const codeFromUrl = new URLSearchParams(location.search).get('code');
@@ -930,6 +932,7 @@ export default function Contacts() {
 
     const applyRealtimeTranscript = (transcript) => {
       if (!transcript || typeof transcript !== 'object') return;
+      if (socketTranscriptActiveRef.current) return;
       const timestamp = Number(transcript.timestamp) || 0;
       if (timestamp && timestamp < lastTranscriptTimestampRef.current) return;
       if (timestamp) lastTranscriptTimestampRef.current = timestamp;
@@ -984,6 +987,7 @@ export default function Contacts() {
     pollLiveTranscript();
 
     const stopVoiceEvents = listenFirebaseValue(`sessions/${activeSessionCode}/voiceEvents`, (events) => {
+      if (socketTranscriptActiveRef.current) return;
       if (!events || typeof events !== 'object') return;
       const latest = Object.values(events)
         .filter((event) => event?.text && Number(event.timestamp) > lastVoiceEventRef.current)
@@ -1041,6 +1045,7 @@ export default function Contacts() {
 
   useEffect(() => {
     if (screen !== 'call' || !globalLiveTranscript) return;
+    if (socketTranscriptActiveRef.current) return;
     const transcript = globalLiveTranscript;
     const timestamp = Number(transcript.timestamp) || 0;
     if (timestamp && timestamp < lastTranscriptTimestampRef.current) return;
@@ -1056,25 +1061,48 @@ export default function Contacts() {
     setIsSpeaking(!transcript.isFinal);
   }, [screen, activeSessionCode, globalLiveTranscript]);
 
-  const processIncomingVoiceText = useCallback((text) => {
-    const cleaned = (text || '').trim();
+  const processIncomingVoiceTranscript = useCallback((transcript) => {
+    const cleaned = (transcript?.text || '').trim();
     if (!cleaned) return;
-    setIsSpeaking(true);
-    setTimeout(() => setIsSpeaking(false), 2000);
-    handleNewTranslationText(cleaned);
+    socketTranscriptActiveRef.current = true;
+    setRemoteTranscript({
+      ...transcript,
+      text: cleaned,
+      isFinal: transcript?.isFinal !== false,
+    });
+    setInterlocuteurDit(cleaned);
+    setIsSpeaking(transcript?.isFinal === false);
+
+    if (cleaned === lastRemoteTextRef.current) return;
+    lastRemoteTextRef.current = cleaned;
+
+    const playNewSpeech = () => {
+      const previous = lastAvatarTextRef.current;
+      const newText = previous && cleaned.startsWith(previous)
+        ? cleaned.slice(previous.length).trim()
+        : cleaned;
+      lastAvatarTextRef.current = cleaned;
+      if (!newText) return;
+      const avatarBusy = frizittaPlaybackRef.current.active || alexPlaybackRef.current.active;
+      if (avatarBusy) {
+        pendingAvatarTextRef.current = `${pendingAvatarTextRef.current} ${newText}`.trim();
+      } else {
+        handleNewTranslationText(newText, { updateDisplay: false });
+      }
+    };
+
+    clearTimeout(avatarTranscriptTimerRef.current);
+    if (transcript?.isFinal !== false) {
+      playNewSpeech();
+    } else {
+      avatarTranscriptTimerRef.current = setTimeout(playNewSpeech, 120);
+    }
   }, [avatarMode, frizittaDb, alexDb]);
 
   useEffect(() => {
-    if (!receivedText?.trim()) return;
-    processIncomingVoiceText(receivedText);
-  }, [receivedText, processIncomingVoiceText]);
-
-  useEffect(() => {
-    window.voxmanusProcessAvatar = processIncomingVoiceText;
-    return () => {
-      delete window.voxmanusProcessAvatar;
-    };
-  }, [processIncomingVoiceText]);
+    if (screen !== 'call' || !receivedTranscript?.text?.trim()) return;
+    processIncomingVoiceTranscript(receivedTranscript);
+  }, [screen, receivedTranscript, processIncomingVoiceTranscript]);
 
   // Simulated Glove signs (gant active)
   const glovePhraseIdxRef = useRef(0);
@@ -1216,9 +1244,9 @@ export default function Contacts() {
     return `${c.firstName[0] || ''}${c.lastName[0] || ''}`.toUpperCase();
   };
 
-  const displayedRemoteText = (activeCall && receivedText)
-    ? receivedText
-    : (remoteTranscript.text || interlocuteurDit);
+  const displayedRemoteText = receivedTranscript?.text
+    || remoteTranscript.text
+    || interlocuteurDit;
   const displayedRemoteWords = displayedRemoteText ? displayedRemoteText.split(' ').filter(Boolean) : [];
 
   // RENDER SWITCH
