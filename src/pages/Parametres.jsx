@@ -1,314 +1,697 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  AlertCircle,
   ArrowLeft,
   Bell,
   Camera,
-  CheckCircle2,
+  Check,
+  Copy,
+  Download,
+  Edit3,
   Eye,
   EyeOff,
-  KeyRound,
-  Languages,
+  FileText,
+  Globe,
+  HelpCircle,
+  Key,
   LogOut,
   Mail,
+  Moon,
   Phone,
-  Save,
-  ShieldCheck,
+  Settings,
+  Shield,
+  Sun,
+  Toggle2,
   Trash2,
   User,
-  UserRound,
-  X,
+  Volume2,
+  ChevronDown,
+  Heart,
+  Lock,
+  AlertTriangle,
 } from 'lucide-react';
 import BrandLogo from '../components/BrandLogo';
-import { useCallSystemContext } from '../context/CallSystemContext';
-import { getVoxManusUser, saveVoxManusUser } from '../lib/voxmanusUser';
+import { getVoxManusUser, saveVoxManusUser, clearVoxManusUser } from '../lib/voxmanusUser';
 import { performLogout } from '../lib/logoutSession';
-import { changePassword as changePasswordRequest } from '../lib/api';
 
-const PROFILE_KEY = 'voxmanus_profile_data';
+const PROFILE_STORAGE_KEY = 'voxmanus_profile_settings';
 
-function getInitialProfile(user) {
-  const names = String(user?.name || '').trim().split(/\s+/);
-  return {
-    firstName: names[0] || '',
-    lastName: names.slice(1).join(' '),
-    email: '',
-    phone: user?.phoneNumber || '',
-    role: user?.role || 'deaf',
-    avatar: user?.avatar || null,
-    language: 'Français',
-    notifications: true,
-  };
-}
-
-function Toggle({ checked, onChange, label }) {
+function SettingsInput({ label, value, onChange, type = 'text', placeholder = '', icon: Icon }) {
   return (
-    <button
-      type="button"
-      className={`vox-toggle ${checked ? 'is-on' : ''}`}
-      onClick={() => onChange(!checked)}
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-    >
-      <span />
-    </button>
+    <div className="mb-4">
+      {label && <label className="text-xs font-bold block mb-2" style={{ color: '#666680' }}>{label}</label>}
+      <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border" style={{ borderColor: '#D9D9E8', background: '#FFFFFF' }}>
+        {Icon && <Icon size={16} style={{ color: '#999' }} />}
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="flex-1 bg-transparent border-none outline-none text-sm font-medium"
+          style={{ color: '#16163A' }}
+        />
+      </div>
+    </div>
   );
 }
 
-export default function Parametres({ variant }) {
+function ToggleSwitch({ label, checked, onChange, description = '' }) {
+  return (
+    <div className="flex items-start justify-between p-3.5 rounded-2xl border mb-3" style={{ borderColor: '#D9D9E8', background: '#FFFFFF' }}>
+      <div className="flex-1">
+        <p className="text-sm font-bold m-0" style={{ color: '#16163A' }}>{label}</p>
+        {description && <p className="text-xs m-0 mt-1" style={{ color: '#666680' }}>{description}</p>}
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className="w-12 h-6 rounded-full border-2 transition-all shrink-0 ml-3"
+        style={{
+          background: checked ? '#0000B4' : '#D9D9E8',
+          borderColor: checked ? '#0000B4' : '#D9D9E8',
+        }}
+        aria-label={`${label}: ${checked ? 'ON' : 'OFF'}`}
+      >
+        <div
+          className="w-4 h-4 rounded-full bg-white transition-transform"
+          style={{
+            transform: checked ? 'translateX(24px)' : 'translateX(2px)',
+          }}
+        />
+      </button>
+    </div>
+  );
+}
+
+function SectionTitle({ title, icon: Icon }) {
+  return (
+    <div className="flex items-center gap-2.5 mb-4 mt-6 pt-6 border-t" style={{ borderColor: '#E0E0E8' }}>
+      {Icon && <Icon size={18} style={{ color: '#0000B4' }} />}
+      <h2 className="text-lg font-extrabold m-0" style={{ color: '#16163A' }}>{title}</h2>
+    </div>
+  );
+}
+
+export default function Parametres({ variant = 'deaf' }) {
   const navigate = useNavigate();
-  const fileRef = useRef(null);
-  const { disconnectSocket } = useCallSystemContext();
-  const [profile, setProfile] = useState(null);
-  const [savedProfile, setSavedProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [loadError, setLoadError] = useState('');
-  const [feedback, setFeedback] = useState(null);
-  const [confirmAction, setConfirmAction] = useState(null);
-  const [passwords, setPasswords] = useState({ current: '', next: '', confirm: '' });
-  const [passwordFeedback, setPasswordFeedback] = useState(null);
-  const [showPasswords, setShowPasswords] = useState(false);
-  const [passwordSaving, setPasswordSaving] = useState(false);
+  const user = getVoxManusUser();
+  const isDark = variant === 'deaf';
+  const accentColor = isDark ? '#0000B4' : '#2E7D32';
+  const accentBg = isDark ? '#EEF2FF' : '#EAF5EB';
+  const homePath = isDark ? '/accueil' : '/entendant/accueil';
+
+  const [profile, setProfile] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEY) || '{}');
+    } catch {
+      return {};
+    }
+  });
+
+  const [settings, setSettings] = useState({
+    language: 'Français',
+    theme: 'system',
+    timezone: 'Africa/Casablanca',
+    timeFormat: '24h',
+    voiceSpeed: 1,
+    voicePitch: 'normal',
+    notifications: true,
+    emailNotifications: true,
+    soundNotifications: true,
+    vibration: true,
+    twoFactorEnabled: false,
+    biometricEnabled: false,
+    keepAudioRecordings: true,
+    autoLanguageDetection: true,
+    alwaysListening: false,
+    textSize: 100,
+    highContrast: false,
+    reduceAnimations: false,
+    enableSubtitles: false,
+  });
+
+  const [activeSection, setActiveSection] = useState('profile');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      try {
-        const user = getVoxManusUser();
-        if (!user) throw new Error('Compte utilisateur introuvable.');
-        const base = getInitialProfile(user);
-        const stored = JSON.parse(localStorage.getItem(PROFILE_KEY) || '{}');
-        const loaded = { ...base, ...(stored.profile || stored), role: user.role, phone: stored.profile?.phone || stored.phone || user.phoneNumber };
-        setProfile(loaded);
-        setSavedProfile(loaded);
-      } catch (error) {
-        setLoadError(error.message || 'Impossible de charger le profil.');
-      } finally {
-        setLoading(false);
-      }
-    }, 450);
-    return () => window.clearTimeout(timer);
-  }, []);
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(settings));
+  }, [settings]);
 
-  const role = variant === 'hearing' || profile?.role === 'hearing' ? 'hearing' : 'deaf';
-  const homePath = role === 'hearing' ? '/entendant/accueil' : '/accueil';
-  const dirty = profile && savedProfile && JSON.stringify(profile) !== JSON.stringify(savedProfile);
-
-  const updateProfile = (key, value) => {
-    setProfile((current) => ({ ...current, [key]: value }));
-    setFeedback(null);
+  const handleLogout = () => {
+    clearVoxManusUser();
+    navigate('/auth', { replace: true });
   };
 
-  const handlePhoto = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setFeedback({ type: 'error', text: 'Sélectionnez une image valide.' });
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      setFeedback({ type: 'error', text: 'L’image doit peser moins de 2 Mo.' });
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => updateProfile('avatar', reader.result);
-    reader.onerror = () => setFeedback({ type: 'error', text: 'Impossible de lire cette image.' });
-    reader.readAsDataURL(file);
-  };
+  const handleBack = () => navigate(homePath);
 
-  const cancelChanges = () => {
-    setProfile(savedProfile);
-    setFeedback({ type: 'info', text: 'Les modifications ont été annulées.' });
-  };
-
-  const saveProfile = async (event) => {
-    event?.preventDefault?.();
-    if (!profile.firstName.trim() || !profile.phone.trim()) {
-      setFeedback({ type: 'error', text: 'Le prénom et le numéro de téléphone sont obligatoires.' });
-      return;
-    }
-    if (profile.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profile.email)) {
-      setFeedback({ type: 'error', text: 'Saisissez une adresse e-mail valide.' });
-      return;
-    }
-    setSaving(true);
-    setFeedback(null);
-    await new Promise((resolve) => window.setTimeout(resolve, 650));
-    try {
-      const currentUser = getVoxManusUser();
-      saveVoxManusUser({
-        ...currentUser,
-        name: `${profile.firstName} ${profile.lastName}`.trim(),
-        phoneNumber: profile.phone,
-        role: profile.role,
-        avatar: profile.avatar,
-      });
-      localStorage.setItem(PROFILE_KEY, JSON.stringify({ profile }));
-      setSavedProfile(profile);
-      setFeedback({ type: 'success', text: 'Profil enregistré avec succès.' });
-      window.dispatchEvent(new CustomEvent('voxmanus-notification', {
-        detail: { title: 'Profil mis à jour', type: 'success', message: 'Vos nouvelles informations sont enregistrées.' },
-      }));
-    } catch {
-      setFeedback({ type: 'error', text: 'Échec de l’enregistrement. Réessayez.' });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const changePassword = async (event) => {
-    event.preventDefault();
-    setPasswordFeedback(null);
-    if (passwords.current.length < 6) {
-      setPasswordFeedback({ type: 'error', text: 'Le mot de passe actuel doit contenir au moins 6 caractères.' });
-      return;
-    }
-    if (passwords.next.length < 8 || !/[A-Z]/.test(passwords.next) || !/[0-9]/.test(passwords.next)) {
-      setPasswordFeedback({ type: 'error', text: 'Le nouveau mot de passe doit contenir 8 caractères, une majuscule et un chiffre.' });
-      return;
-    }
-    if (passwords.next !== passwords.confirm) {
-      setPasswordFeedback({ type: 'error', text: 'Les nouveaux mots de passe ne correspondent pas.' });
-      return;
-    }
-    setPasswordSaving(true);
-    const { res, data } = await changePasswordRequest({
-      currentPassword: passwords.current,
-      newPassword: passwords.next,
-    });
-    setPasswordSaving(false);
-    if (!res.ok) {
-      setPasswordFeedback({ type: 'error', text: data?.error || 'Impossible de modifier le mot de passe.' });
-      return;
-    }
-    setPasswords({ current: '', next: '', confirm: '' });
-    setPasswordFeedback({ type: 'success', text: 'Mot de passe modifié avec succès.' });
-  };
-
-  const deleteAccount = () => {
-    localStorage.removeItem(PROFILE_KEY);
-    localStorage.removeItem('sessions');
-    localStorage.removeItem('voxmanus_contacts');
-    setConfirmAction(null);
-    performLogout(navigate, disconnectSocket);
-  };
-
-  if (loading) {
-    return (
-      <div className="vox-settings">
-        <div className="vox-settings__skeleton vox-skeleton" />
-        <div className="vox-settings__skeleton vox-skeleton" />
-        <div className="vox-settings__skeleton vox-skeleton" />
-      </div>
-    );
-  }
-
-  if (loadError || !profile) {
-    return (
-      <div className="vox-settings vox-settings--error">
-        <AlertCircle size={32} />
-        <h1>Impossible de charger le profil</h1>
-        <p>{loadError}</p>
-        <button type="button" className="vox-button vox-button--blue" onClick={() => window.location.reload()}>Réessayer</button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="vox-settings">
-      <header className="vox-settings__topbar">
-        <button type="button" className="vox-icon-button" onClick={() => navigate(homePath)} aria-label="Retour au tableau de bord"><ArrowLeft size={19} /></button>
-        <BrandLogo compact />
-        <div>
-          <button type="button" className="vox-button vox-button--outline" onClick={cancelChanges} disabled={!dirty || saving}><X size={16} /> Annuler</button>
-          <button type="button" className="vox-button vox-button--primary" onClick={saveProfile} disabled={!dirty || saving}>
-            {saving ? <span className="vox-spinner" /> : <Save size={16} />} {saving ? 'Enregistrement…' : 'Enregistrer'}
+  const renderProfileSection = () => (
+    <div>
+      <div className="rounded-3xl p-6 mb-6" style={{ background: accentBg, border: `2px solid ${accentColor}` }}>
+        <div className="flex items-start justify-between mb-4">
+          <div className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold" style={{ background: accentColor, color: '#fff' }}>
+            {(user?.name || 'U').split(' ').map((n) => n[0]).join('').toUpperCase()}
+          </div>
+          <button
+            type="button"
+            className="w-10 h-10 rounded-full flex items-center justify-center"
+            style={{ background: '#FFFFFF', border: `2px solid ${accentColor}` }}
+          >
+            <Camera size={18} style={{ color: accentColor }} />
           </button>
         </div>
-      </header>
-
-      <main className="vox-settings__main">
-        <div className="vox-settings__heading">
-          <div><span className="vox-eyebrow">Compte VoxManus</span><h1>Profil et paramètres</h1><p>Gérez vos informations personnelles, votre sécurité et vos préférences.</p></div>
-          <span className="vox-role-badge"><ShieldCheck size={15} /> {role === 'hearing' ? 'Personne entendante' : 'Personne sourde'}</span>
+        <h3 className="text-xl font-bold m-0 mb-2" style={{ color: accentColor }}>
+          {profile.fullName || user?.name || 'Utilisateur'}
+        </h3>
+        <p className="text-sm m-0 mb-3" style={{ color: '#666680' }}>
+          {profile.email || 'Email non configuré'}
+        </p>
+        <div className="flex items-center gap-2 inline-flex px-3.5 py-1.5 rounded-full" style={{ background: '#FFFFFF' }}>
+          <Heart size={14} style={{ color: '#FF6B6B' }} />
+          <span className="text-xs font-bold" style={{ color: '#333' }}>Premium</span>
         </div>
+      </div>
 
-        {feedback && (
-          <div className={`vox-form-feedback vox-form-feedback--${feedback.type}`} role="status">
-            {feedback.type === 'success' ? <CheckCircle2 size={17} /> : feedback.type === 'error' ? <AlertCircle size={17} /> : <Bell size={17} />}
-            {feedback.text}
+      <SettingsInput
+        label="Nom complet"
+        value={profile.fullName || user?.name || ''}
+        onChange={(value) => setProfile({ ...profile, fullName: value })}
+        icon={User}
+      />
+
+      <SettingsInput
+        label="Adresse email"
+        value={profile.email || ''}
+        onChange={(value) => setProfile({ ...profile, email: value })}
+        type="email"
+        icon={Mail}
+      />
+
+      <SettingsInput
+        label="Numéro de téléphone"
+        value={profile.phone || user?.phoneNumber || ''}
+        onChange={(value) => setProfile({ ...profile, phone: value })}
+        icon={Phone}
+      />
+
+      <button
+        type="button"
+        className="w-full py-3 rounded-2xl font-bold border-0 mb-3 transition-all"
+        style={{ background: accentColor, color: '#fff' }}
+      >
+        Mettre à jour le profil
+      </button>
+
+      <button
+        type="button"
+        className="w-full py-3 rounded-2xl font-bold border-0 transition-all"
+        style={{ background: '#F0F0F0', color: '#666' }}
+      >
+        Voir mon profil public
+      </button>
+    </div>
+  );
+
+  const renderAccountSection = () => (
+    <div>
+      <SectionTitle title="Sécurité du compte" icon={Key} />
+      
+      <SettingsInput
+        label="Ancien mot de passe"
+        value=""
+        onChange={() => {}}
+        type="password"
+        icon={Lock}
+      />
+
+      <SettingsInput
+        label="Nouveau mot de passe"
+        value=""
+        onChange={() => {}}
+        type="password"
+        icon={Lock}
+      />
+
+      <SettingsInput
+        label="Confirmer le mot de passe"
+        value=""
+        onChange={() => {}}
+        type="password"
+        icon={Lock}
+      />
+
+      <button
+        type="button"
+        className="w-full py-3 rounded-2xl font-bold border-0 mb-6 transition-all"
+        style={{ background: accentColor, color: '#fff' }}
+      >
+        Changer le mot de passe
+      </button>
+
+      <SectionTitle title="Comptes externes" icon={Globe} />
+      
+      {[
+        { name: 'Google', icon: '🔵' },
+        { name: 'Apple', icon: '⚫' },
+        { name: 'Microsoft', icon: '🔷' },
+      ].map((service) => (
+        <div key={service.name} className="p-3.5 rounded-2xl border mb-3 flex items-center justify-between" style={{ borderColor: '#D9D9E8', background: '#FFFFFF' }}>
+          <div className="flex items-center gap-3">
+            <span className="text-lg">{service.icon}</span>
+            <span className="font-bold" style={{ color: '#16163A' }}>{service.name}</span>
           </div>
-        )}
+          <button className="px-4 py-1.5 rounded-full text-xs font-bold" style={{ background: accentColor, color: '#fff' }}>
+            Connecter
+          </button>
+        </div>
+      ))}
 
-        <div className="vox-settings-grid">
-          <aside className="vox-profile-card">
-            <div className="vox-profile-avatar">
-              {profile.avatar ? <img src={profile.avatar} alt={`Photo de ${profile.firstName}`} /> : <UserRound size={40} />}
-              <button type="button" onClick={() => fileRef.current?.click()} aria-label="Changer la photo de profil"><Camera size={17} /></button>
-              <input ref={fileRef} type="file" accept="image/*" onChange={handlePhoto} hidden />
-            </div>
-            <h2>{profile.firstName} {profile.lastName}</h2>
-            <p>{profile.email || 'E-mail non renseigné'}</p>
-            <span>{role === 'hearing' ? 'Compte entendant' : 'Compte sourd'}</span>
-            <button type="button" className="vox-button vox-button--outline w-full" onClick={() => fileRef.current?.click()}><Camera size={16} /> Changer la photo</button>
-            {profile.avatar && <button type="button" className="vox-text-danger" onClick={() => updateProfile('avatar', null)}>Supprimer la photo</button>}
-          </aside>
+      <SectionTitle title="Suppression du compte" icon={Trash2} />
+      
+      <button
+        type="button"
+        onClick={() => setShowDeleteModal(true)}
+        className="w-full py-3 rounded-2xl font-bold border-0 transition-all"
+        style={{ background: '#FFE0E0', color: '#E53935' }}
+      >
+        Supprimer mon compte
+      </button>
+    </div>
+  );
 
-          <div className="vox-settings__content">
-            <form className="vox-settings-card" onSubmit={saveProfile}>
-              <div className="vox-settings-card__title"><User size={19} /><div><h2>Informations du compte</h2><p>Données du propriétaire du compte.</p></div></div>
-              <div className="vox-form-grid">
-                <label className="vox-field"><span>Prénom *</span><input value={profile.firstName} onChange={(event) => updateProfile('firstName', event.target.value)} /></label>
-                <label className="vox-field"><span>Nom</span><input value={profile.lastName} onChange={(event) => updateProfile('lastName', event.target.value)} /></label>
-                <label className="vox-field"><span><Mail size={13} /> E-mail</span><input type="email" value={profile.email} onChange={(event) => updateProfile('email', event.target.value)} placeholder="nom@exemple.com" /></label>
-                <label className="vox-field"><span><Phone size={13} /> Téléphone *</span><input type="tel" value={profile.phone} onChange={(event) => updateProfile('phone', event.target.value)} /></label>
-                <label className="vox-field"><span>Type de compte</span><select value={profile.role} onChange={(event) => updateProfile('role', event.target.value)}><option value="deaf">Personne sourde</option><option value="hearing">Personne entendante</option></select></label>
-                <label className="vox-field"><span><Languages size={13} /> Langue</span><select value={profile.language} onChange={(event) => updateProfile('language', event.target.value)}><option>Français</option><option>English</option><option>العربية</option></select></label>
-              </div>
-            </form>
+  const renderPreferencesSection = () => (
+    <div>
+      <SectionTitle title="Langue & Localisation" icon={Globe} />
+      
+      <div className="mb-4">
+        <label className="text-xs font-bold block mb-2" style={{ color: '#666680' }}>Langue de l'interface</label>
+        <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-2xl border cursor-pointer" style={{ borderColor: '#D9D9E8', background: '#FFFFFF' }}>
+          <Globe size={16} style={{ color: '#999' }} />
+          <select
+            value={settings.language}
+            onChange={(e) => setSettings({ ...settings, language: e.target.value })}
+            className="flex-1 bg-transparent border-none outline-none text-sm font-medium"
+            style={{ color: '#16163A' }}
+          >
+            <option value="Français">Français</option>
+            <option value="العربية">العربية</option>
+            <option value="English">English</option>
+            <option value="Español">Español</option>
+          </select>
+        </div>
+      </div>
 
-            <form className="vox-settings-card" onSubmit={changePassword}>
-              <div className="vox-settings-card__title"><KeyRound size={19} /><div><h2>Changer le mot de passe</h2><p>Utilisez un mot de passe unique et difficile à deviner.</p></div><button type="button" className="vox-icon-button" onClick={() => setShowPasswords((show) => !show)} aria-label="Afficher ou masquer les mots de passe">{showPasswords ? <EyeOff size={17} /> : <Eye size={17} />}</button></div>
-              <div className="vox-form-grid">
-                <label className="vox-field vox-field--full"><span>Mot de passe actuel</span><input type={showPasswords ? 'text' : 'password'} value={passwords.current} onChange={(event) => setPasswords((current) => ({ ...current, current: event.target.value }))} /></label>
-                <label className="vox-field"><span>Nouveau mot de passe</span><input type={showPasswords ? 'text' : 'password'} value={passwords.next} onChange={(event) => setPasswords((current) => ({ ...current, next: event.target.value }))} /></label>
-                <label className="vox-field"><span>Confirmer</span><input type={showPasswords ? 'text' : 'password'} value={passwords.confirm} onChange={(event) => setPasswords((current) => ({ ...current, confirm: event.target.value }))} /></label>
-              </div>
-              {passwordFeedback && <div className={`vox-form-feedback vox-form-feedback--${passwordFeedback.type}`}>{passwordFeedback.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}{passwordFeedback.text}</div>}
-              <button type="submit" className="vox-button vox-button--blue" disabled={passwordSaving}>
-                {passwordSaving ? <span className="vox-spinner" /> : <KeyRound size={16} />}
-                {passwordSaving ? 'Modification…' : 'Modifier le mot de passe'}
+      <div className="mb-4">
+        <label className="text-xs font-bold block mb-2" style={{ color: '#666680' }}>Thème</label>
+        <div className="grid grid-cols-3 gap-2">
+          {[{ id: 'light', icon: Sun, label: 'Clair' }, { id: 'dark', icon: Moon, label: 'Sombre' }, { id: 'system', label: 'Système' }].map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setSettings({ ...settings, theme: t.id })}
+              className="py-3 rounded-2xl border-2 font-bold transition-all"
+              style={{
+                background: settings.theme === t.id ? accentColor : '#FFFFFF',
+                borderColor: settings.theme === t.id ? accentColor : '#D9D9E8',
+                color: settings.theme === t.id ? '#fff' : '#16163A',
+              }}
+            >
+              {t.icon && <t.icon size={16} className="inline mr-1" />}
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <SettingsInput
+        label="Fuseau horaire"
+        value={settings.timezone}
+        onChange={(value) => setSettings({ ...settings, timezone: value })}
+        icon={Globe}
+      />
+
+      <SectionTitle title="Format de date & heure" icon={Settings} />
+      
+      <div className="mb-4">
+        <label className="text-xs font-bold block mb-2" style={{ color: '#666680' }}>Format</label>
+        <div className="grid grid-cols-2 gap-2">
+          {[{ id: '24h', label: 'Format 24h' }, { id: '12h', label: 'Format 12h' }].map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setSettings({ ...settings, timeFormat: f.id })}
+              className="py-3 rounded-2xl border-2 font-bold transition-all"
+              style={{
+                background: settings.timeFormat === f.id ? accentColor : '#FFFFFF',
+                borderColor: settings.timeFormat === f.id ? accentColor : '#D9D9E8',
+                color: settings.timeFormat === f.id ? '#fff' : '#16163A',
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderVoiceSection = () => (
+    <div>
+      <SectionTitle title="Voix de l'assistant" icon={Volume2} />
+      
+      {[1, 2, 3].map((v) => (
+        <div key={v} className="p-4 rounded-2xl border mb-3 flex items-center justify-between" style={{ borderColor: '#D9D9E8', background: '#FFFFFF' }}>
+          <div>
+            <p className="font-bold m-0" style={{ color: '#16163A' }}>Voix {v}</p>
+            <p className="text-xs m-0 mt-1" style={{ color: '#666680' }}>{v === 1 ? 'Féminine' : v === 2 ? 'Masculine' : 'Neutre'}</p>
+          </div>
+          <button className="px-3 py-2 rounded-full" style={{ background: accentBg, border: `1px solid ${accentColor}` }}>
+            ▶ Écouter
+          </button>
+        </div>
+      ))}
+
+      <SectionTitle title="Paramètres vocaux" icon={Volume2} />
+      
+      <div className="mb-4">
+        <label className="text-xs font-bold block mb-2" style={{ color: '#666680' }}>Vitesse de parole: {settings.voiceSpeed.toFixed(1)}x</label>
+        <input
+          type="range"
+          min="0.5"
+          max="2"
+          step="0.1"
+          value={settings.voiceSpeed}
+          onChange={(e) => setSettings({ ...settings, voiceSpeed: parseFloat(e.target.value) })}
+          className="w-full"
+        />
+      </div>
+
+      <div className="mb-4">
+        <label className="text-xs font-bold block mb-2" style={{ color: '#666680' }}>Tonalité vocale</label>
+        <select
+          value={settings.voicePitch}
+          onChange={(e) => setSettings({ ...settings, voicePitch: e.target.value })}
+          className="w-full px-3.5 py-2.5 rounded-2xl border"
+          style={{ borderColor: '#D9D9E8', background: '#FFFFFF', color: '#16163A' }}
+        >
+          <option value="grave">Grave</option>
+          <option value="normal">Normal</option>
+          <option value="aigu">Aigu</option>
+        </select>
+      </div>
+
+      <ToggleSwitch
+        label="Détection automatique de la langue"
+        checked={settings.autoLanguageDetection}
+        onChange={(value) => setSettings({ ...settings, autoLanguageDetection: value })}
+      />
+
+      <ToggleSwitch
+        label="Mode écoute continue"
+        checked={settings.alwaysListening}
+        onChange={(value) => setSettings({ ...settings, alwaysListening: value })}
+        description="Attention: Peut affecter la batterie et la confidentialité"
+      />
+    </div>
+  );
+
+  const renderNotificationsSection = () => (
+    <div>
+      <SectionTitle title="Notifications" icon={Bell} />
+      
+      <ToggleSwitch
+        label="Notifications push"
+        checked={settings.notifications}
+        onChange={(value) => setSettings({ ...settings, notifications: value })}
+      />
+
+      <ToggleSwitch
+        label="Notifications par email"
+        checked={settings.emailNotifications}
+        onChange={(value) => setSettings({ ...settings, emailNotifications: value })}
+      />
+
+      <ToggleSwitch
+        label="Sons de notification"
+        checked={settings.soundNotifications}
+        onChange={(value) => setSettings({ ...settings, soundNotifications: value })}
+      />
+
+      <ToggleSwitch
+        label="Vibrations"
+        checked={settings.vibration}
+        onChange={(value) => setSettings({ ...settings, vibration: value })}
+      />
+
+      <SectionTitle title="Mode Ne pas déranger" icon={Bell} />
+      
+      <div className="flex items-center gap-3 p-3.5 rounded-2xl border mb-3" style={{ borderColor: '#D9D9E8', background: '#FFFFFF' }}>
+        <label className="text-xs font-bold" style={{ color: '#666680' }}>De</label>
+        <input type="time" defaultValue="22:00" className="flex-1 px-3 py-2 rounded-lg border" style={{ borderColor: '#D9D9E8' }} />
+        <label className="text-xs font-bold" style={{ color: '#666680' }}>à</label>
+        <input type="time" defaultValue="08:00" className="flex-1 px-3 py-2 rounded-lg border" style={{ borderColor: '#D9D9E8' }} />
+      </div>
+    </div>
+  );
+
+  const renderPrivacySection = () => (
+    <div>
+      <SectionTitle title="Sécurité" icon={Shield} />
+      
+      <ToggleSwitch
+        label="Authentification 2FA (SMS)"
+        checked={settings.twoFactorEnabled}
+        onChange={(value) => setSettings({ ...settings, twoFactorEnabled: value })}
+      />
+
+      <ToggleSwitch
+        label="Verrouillage par biométrie"
+        checked={settings.biometricEnabled}
+        onChange={(value) => setSettings({ ...settings, biometricEnabled: value })}
+      />
+
+      <SectionTitle title="Données & Enregistrements" icon={Download} />
+      
+      <button
+        type="button"
+        className="w-full py-3 rounded-2xl font-bold border-0 mb-3 transition-all"
+        style={{ background: accentBg, color: accentColor, border: `2px solid ${accentColor}` }}
+      >
+        Voir l'historique des conversations
+      </button>
+
+      <ToggleSwitch
+        label="Conserver les enregistrements audio"
+        checked={settings.keepAudioRecordings}
+        onChange={(value) => setSettings({ ...settings, keepAudioRecordings: value })}
+      />
+
+      <button
+        type="button"
+        className="w-full py-3 rounded-2xl font-bold border-0 mb-3 transition-all flex items-center justify-center gap-2"
+        style={{ background: accentColor, color: '#fff' }}
+      >
+        <Download size={16} />
+        Exporter mes données (RGPD)
+      </button>
+
+      <SectionTitle title="Gérer les permissions" icon={Lock} />
+      
+      {['Microphone', 'Contacts', 'Localisation', 'Caméra'].map((perm) => (
+        <button
+          key={perm}
+          className="w-full p-3.5 rounded-2xl border mb-2 text-left font-bold transition-all"
+          style={{ borderColor: '#D9D9E8', background: '#FFFFFF', color: accentColor }}
+        >
+          {perm} → Ouvrir les paramètres système
+        </button>
+      ))}
+
+      <SectionTitle title="Sessions actives" icon={Settings} />
+      
+      <div className="p-4 rounded-2xl border mb-3" style={{ borderColor: '#D9D9E8', background: '#FFFFFF' }}>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="font-bold m-0" style={{ color: '#16163A' }}>iPhone 13 Pro</p>
+            <p className="text-xs m-0 mt-1" style={{ color: '#666680' }}>Dernière utilisation: Il y a 5 minutes</p>
+          </div>
+          <button className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: '#FFE0E0', color: '#E53935' }}>
+            Déconnecter
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderAccessibilitySection = () => (
+    <div>
+      <SectionTitle title="Accessibilité" icon={Settings} />
+      
+      <div className="mb-4">
+        <label className="text-xs font-bold block mb-2" style={{ color: '#666680' }}>Taille du texte: {settings.textSize}%</label>
+        <input
+          type="range"
+          min="80"
+          max="150"
+          step="10"
+          value={settings.textSize}
+          onChange={(e) => setSettings({ ...settings, textSize: parseInt(e.target.value) })}
+          className="w-full"
+        />
+      </div>
+
+      <ToggleSwitch
+        label="Contraste élevé"
+        checked={settings.highContrast}
+        onChange={(value) => setSettings({ ...settings, highContrast: value })}
+      />
+
+      <ToggleSwitch
+        label="Réduction des animations"
+        checked={settings.reduceAnimations}
+        onChange={(value) => setSettings({ ...settings, reduceAnimations: value })}
+      />
+
+      <ToggleSwitch
+        label="Sous-titres pour les réponses vocales"
+        checked={settings.enableSubtitles}
+        onChange={(value) => setSettings({ ...settings, enableSubtitles: value })}
+      />
+    </div>
+  );
+
+  const renderAboutSection = () => (
+    <div>
+      <SectionTitle title="À propos" icon={HelpCircle} />
+      
+      <div className="p-4 rounded-2xl border mb-3" style={{ borderColor: '#D9D9E8', background: '#FFFFFF' }}>
+        <p className="text-sm font-bold m-0" style={{ color: '#16163A' }}>VoxManus v2.4.1</p>
+        <button className="text-xs font-bold mt-2" style={{ color: accentColor }}>
+          Vérifier les mises à jour
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 mb-6">
+        {[
+          { label: 'Centre d\'aide / FAQ', href: '#' },
+          { label: 'Contacter le support', href: '#' },
+          { label: 'Donner votre avis', href: '#' },
+          { label: 'Conditions générales', href: '#' },
+          { label: 'Politique de confidentialité', href: '#' },
+          { label: 'Licences open source', href: '#' },
+        ].map((link) => (
+          <a
+            key={link.label}
+            href={link.href}
+            className="p-3.5 rounded-2xl border text-left font-bold transition-all"
+            style={{ borderColor: '#D9D9E8', background: '#FFFFFF', color: accentColor }}
+          >
+            {link.label}
+          </a>
+        ))}
+      </div>
+
+      <SectionTitle title="Réseaux sociaux" icon={Globe} />
+      
+      <div className="flex justify-center gap-3">
+        {['f', 'X', 'In', 'YT'].map((social) => (
+          <button
+            key={social}
+            className="w-12 h-12 rounded-full font-bold flex items-center justify-center border-2"
+            style={{ borderColor: accentColor, color: accentColor }}
+          >
+            {social}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const sections = [
+    { id: 'profile', label: 'Profil', icon: User, render: renderProfileSection },
+    { id: 'account', label: 'Compte', icon: Key, render: renderAccountSection },
+    { id: 'preferences', label: 'Préférences', icon: Settings, render: renderPreferencesSection },
+    { id: 'voice', label: 'Voix', icon: Volume2, render: renderVoiceSection },
+    { id: 'notifications', label: 'Notifications', icon: Bell, render: renderNotificationsSection },
+    { id: 'privacy', label: 'Sécurité', icon: Shield, render: renderPrivacySection },
+    { id: 'accessibility', label: 'Accessibilité', icon: Settings, render: renderAccessibilitySection },
+    { id: 'about', label: 'À propos', icon: HelpCircle, render: renderAboutSection },
+  ];
+
+  return (
+    <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
+      {/* Header */}
+      <div className="sticky top-0 z-50 backdrop-blur-md" style={{ background: 'rgba(248, 250, 252, 0.8)', borderBottom: '1px solid #E0E0E8' }}>
+        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={handleBack} className="w-10 h-10 rounded-full flex items-center justify-center transition-all" style={{ background: '#E0E0E8', color: '#16163A' }}>
+              <ArrowLeft size={20} />
+            </button>
+            <h1 className="text-xl font-bold m-0" style={{ color: '#16163A' }}>Paramètres</h1>
+          </div>
+          <BrandLogo compact hideText markSize={40} />
+        </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 py-6 pb-20">
+        {/* Section Navigation */}
+        <div className="grid grid-cols-2 gap-2 mb-6 max-h-96 overflow-y-auto">
+          {sections.map((section) => {
+            const Icon = section.icon;
+            return (
+              <button
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
+                className="p-3 rounded-2xl border-2 text-left transition-all font-bold text-sm"
+                style={{
+                  background: activeSection === section.id ? accentColor : '#FFFFFF',
+                  borderColor: activeSection === section.id ? accentColor : '#D9D9E8',
+                  color: activeSection === section.id ? '#fff' : '#16163A',
+                }}
+              >
+                <Icon size={16} className="mb-1" />
+                <span className="block">{section.label}</span>
               </button>
-            </form>
-
-            <section className="vox-settings-card">
-              <div className="vox-settings-card__title"><Bell size={19} /><div><h2>Préférences</h2><p>Personnalisez votre expérience VoxManus.</p></div></div>
-              <div className="vox-preference-row"><div><strong>Notifications</strong><span>Recevoir les alertes d’appels et de sessions.</span></div><Toggle checked={profile.notifications} onChange={(value) => updateProfile('notifications', value)} label="Notifications" /></div>
-              <div className="vox-preference-row"><div><strong>Thème de l’application</strong><span>Le mode clair VoxManus garantit un contraste accessible.</span></div><span className="vox-status vox-status--success">Clair</span></div>
-            </section>
-
-            <section className="vox-settings-card vox-settings-card--danger">
-              <div className="vox-settings-card__title"><AlertCircle size={19} /><div><h2>Zone sensible</h2><p>Ces actions nécessitent une confirmation.</p></div></div>
-              <div className="vox-danger-actions">
-                <button type="button" className="vox-button vox-button--outline" onClick={() => setConfirmAction('logout')}><LogOut size={16} /> Se déconnecter</button>
-                <button type="button" className="vox-button vox-button--danger" onClick={() => setConfirmAction('delete')}><Trash2 size={16} /> Supprimer le compte</button>
-              </div>
-            </section>
-          </div>
+            );
+          })}
         </div>
-      </main>
 
-      {confirmAction && (
-        <div className="vox-modal-backdrop">
-          <div className="vox-modal" role="dialog" aria-modal="true">
-            <span className="vox-modal__danger-icon">{confirmAction === 'delete' ? <Trash2 size={22} /> : <LogOut size={22} />}</span>
-            <h2>{confirmAction === 'delete' ? 'Supprimer définitivement le compte ?' : 'Se déconnecter de VoxManus ?'}</h2>
-            <p>{confirmAction === 'delete' ? 'Le profil, les contacts locaux et l’historique seront supprimés. Cette action est irréversible.' : 'Votre session sera fermée sur cet appareil.'}</p>
-            <div className="vox-modal__actions">
-              <button type="button" className="vox-button vox-button--outline" onClick={() => setConfirmAction(null)}>Annuler</button>
-              <button type="button" className="vox-button vox-button--danger" onClick={() => confirmAction === 'delete' ? deleteAccount() : performLogout(navigate, disconnectSocket)}>Confirmer</button>
+        {/* Content */}
+        <div className="bg-white rounded-3xl p-6 border" style={{ borderColor: '#E0E0E8' }}>
+          {sections.find((s) => s.id === activeSection)?.render()}
+        </div>
+
+        {/* Logout Button */}
+        <button
+          onClick={handleLogout}
+          className="w-full mt-6 py-4 rounded-2xl font-bold border-0 flex items-center justify-center gap-2 transition-all"
+          style={{ background: '#FFE0E0', color: '#E53935' }}
+        >
+          <LogOut size={18} />
+          Se déconnecter
+        </button>
+      </div>
+
+      {/* Delete Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-end z-50">
+          <div className="w-full bg-white rounded-t-3xl p-6 animate-fade-in">
+            <AlertTriangle size={32} style={{ color: '#E53935' }} className="mb-4" />
+            <h2 className="text-xl font-bold mb-2" style={{ color: '#16163A' }}>Supprimer mon compte ?</h2>
+            <p className="text-sm mb-4" style={{ color: '#666680' }}>
+              Cette action est irréversible. Tous vos données seront supprimées.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="py-3 rounded-2xl font-bold border-0"
+                style={{ background: '#F0F0F0', color: '#16163A' }}
+              >
+                Annuler
+              </button>
+              <button
+                className="py-3 rounded-2xl font-bold border-0"
+                style={{ background: '#E53935', color: '#fff' }}
+              >
+                Supprimer
+              </button>
             </div>
           </div>
         </div>
