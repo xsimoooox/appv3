@@ -219,6 +219,12 @@ export async function createRealtimeCall({
         timestamp,
         lang,
       },
+      liveTranscript: {
+        text: '',
+        isFinal: true,
+        timestamp,
+        lang,
+      },
       status: 'active',
       participants: {
         A: callerUid,
@@ -306,11 +312,15 @@ export async function sendTranscript({ code, text, isFinal, lang }) {
     lang,
   };
 
-  await updateFirebaseData('', {
-    [`sessions/${code}/transcript`]: transcript,
-    [`sessions/${code}/status`]: isFinal ? 'idle' : 'speaking',
-    [`sessions/${code}/voiceEvents/${timestamp}`]: transcript,
-  });
+  // Keep the live text on a small direct path so partial results are delivered
+  // immediately, independently from larger session updates.
+  await setFirebaseData(`sessions/${code}/liveTranscript`, transcript);
+
+  Promise.all([
+    setFirebaseData(`sessions/${code}/transcript`, transcript),
+    setFirebaseData(`sessions/${code}/status`, isFinal ? 'idle' : 'speaking'),
+    setFirebaseData(`sessions/${code}/voiceEvents/${timestamp}`, transcript),
+  ]).catch(() => {});
 }
 
 export async function endRealtimeCall(code) {

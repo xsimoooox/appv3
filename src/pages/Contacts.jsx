@@ -260,6 +260,7 @@ export default function Contacts() {
   const avatarTranscriptTimerRef = useRef(null);
   const pendingAvatarTextRef = useRef('');
   const lastVoiceEventRef = useRef(0);
+  const lastTranscriptTimestampRef = useRef(0);
 
   // Load contacts database — always reinitialize from DEFAULT if missing/empty
   useEffect(() => {
@@ -768,10 +769,10 @@ export default function Contacts() {
     }
   };
 
-  const handleNewTranslationText = (text) => {
+  const handleNewTranslationText = (text, { updateDisplay = true } = {}) => {
     if (!text.trim()) return;
 
-    setInterlocuteurDit(text);
+    if (updateDisplay) setInterlocuteurDit(text);
     setTranscriptHistory((prev) => [
       ...prev,
       {
@@ -853,6 +854,7 @@ export default function Contacts() {
     lastAvatarTextRef.current = '';
     pendingAvatarTextRef.current = '';
     lastVoiceEventRef.current = 0;
+    lastTranscriptTimestampRef.current = 0;
     clearTimeout(avatarTranscriptTimerRef.current);
 
     const codeFromUrl = new URLSearchParams(location.search).get('code');
@@ -885,8 +887,11 @@ export default function Contacts() {
   useEffect(() => {
     if (screen !== 'call' || !activeSessionCode) return undefined;
 
-    const stopTranscript = listenFirebaseValue(`sessions/${activeSessionCode}/transcript`, (transcript) => {
+    const applyRealtimeTranscript = (transcript) => {
       if (!transcript || typeof transcript !== 'object') return;
+      const timestamp = Number(transcript.timestamp) || 0;
+      if (timestamp && timestamp < lastTranscriptTimestampRef.current) return;
+      if (timestamp) lastTranscriptTimestampRef.current = timestamp;
       const text = transcript.text || '';
       setRemoteTranscript(transcript);
       setInterlocuteurDit(text);
@@ -907,7 +912,7 @@ export default function Contacts() {
           pendingAvatarTextRef.current = `${pendingAvatarTextRef.current} ${newText}`.trim();
           return;
         }
-        handleNewTranslationText(newText);
+        handleNewTranslationText(newText, { updateDisplay: false });
       };
 
       clearTimeout(avatarTranscriptTimerRef.current);
@@ -916,7 +921,26 @@ export default function Contacts() {
       } else {
         avatarTranscriptTimerRef.current = setTimeout(playNewSpeech, 120);
       }
-    }, setRealtimeConnection);
+    };
+
+    const stopLiveTranscript = listenFirebaseValue(
+      `sessions/${activeSessionCode}/liveTranscript`,
+      applyRealtimeTranscript,
+      setRealtimeConnection,
+    );
+    const stopTranscript = listenFirebaseValue(
+      `sessions/${activeSessionCode}/transcript`,
+      applyRealtimeTranscript,
+      setRealtimeConnection,
+    );
+
+    const pollLiveTranscript = () => {
+      getFirebaseData(`sessions/${activeSessionCode}/liveTranscript`)
+        .then(applyRealtimeTranscript)
+        .catch(() => {});
+    };
+    const liveTranscriptPoll = setInterval(pollLiveTranscript, 350);
+    pollLiveTranscript();
 
     const stopVoiceEvents = listenFirebaseValue(`sessions/${activeSessionCode}/voiceEvents`, (events) => {
       if (!events || typeof events !== 'object') return;
@@ -936,7 +960,7 @@ export default function Contacts() {
       if (avatarBusy) {
         pendingAvatarTextRef.current = `${pendingAvatarTextRef.current} ${newText}`.trim();
       } else {
-        handleNewTranslationText(newText);
+        handleNewTranslationText(newText, { updateDisplay: false });
       }
     }, setRealtimeConnection);
 
@@ -963,10 +987,12 @@ export default function Contacts() {
     }, 20000);
 
     return () => {
+      stopLiveTranscript();
       stopTranscript();
       stopVoiceEvents();
       stopStatus();
       stopCallMeta();
+      clearInterval(liveTranscriptPoll);
       clearInterval(keepAlive);
       clearTimeout(avatarTranscriptTimerRef.current);
     };
