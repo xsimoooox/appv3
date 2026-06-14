@@ -202,17 +202,6 @@ export function useGlobalCallListener({ onAcceptCall, onRejectCall } = {}) {
     const calleeName = getWakwakUser()?.name || '';
     storeSessionCode(call.code);
 
-    // Join metadata runs in the background. Navigation/listeners must start
-    // immediately so live transcription is not delayed by Firebase writes.
-    joinRealtimeCall({
-        code: call.code,
-        uid,
-        calleeName,
-        calleePhone: myPhone,
-      })
-      .catch(() => {});
-    Promise.resolve(onAcceptCall?.(call.code)).catch(() => {});
-
     dismissCode(call.code);
     dismissedRef.current.add(call.code);
 
@@ -227,11 +216,21 @@ export function useGlobalCallListener({ onAcceptCall, onRejectCall } = {}) {
     ringingRef.current = null;
     setAccepting(false);
 
+    // Open the call UI first. Firebase join and WebRTC negotiation continue in
+    // the background without delaying the user's acceptance.
     try {
       navigate(joinPath);
     } catch {
       window.location.assign(joinPath);
     }
+
+    joinRealtimeCall({
+      code: call.code,
+      uid,
+      calleeName,
+      calleePhone: myPhone,
+    }).catch(() => {});
+    Promise.resolve(onAcceptCall?.(call.code)).catch(() => {});
   }, [navigate, accepting, myPhone, onAcceptCall]);
 
   const rejectIncomingCall = useCallback(async () => {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'wakwak-v6';
+const CACHE_NAME = 'wakwak-v7';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 const DEFAULT_API = 'http://localhost:3001';
@@ -24,6 +24,23 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
+  const url = new URL(e.request.url);
+  const isNavigation = e.request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html';
+
+  if (isNavigation) {
+    e.respondWith(
+      fetch(e.request, { cache: 'no-store' })
+        .then((response) => {
+          if (response?.ok) {
+            caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', response.clone()));
+          }
+          return response;
+        })
+        .catch(() => caches.match('/index.html')),
+    );
+    return;
+  }
+
   e.respondWith(
     caches.match(e.request).then((cachedResponse) => {
       if (cachedResponse) return cachedResponse;
@@ -39,7 +56,6 @@ self.addEventListener('fetch', (e) => {
           return response;
         })
         .catch(() => {
-          const url = new URL(e.request.url);
           if (url.pathname.startsWith('/assets/') || url.pathname.endsWith('.js')) {
             return Response.error();
           }

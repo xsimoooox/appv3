@@ -18,6 +18,12 @@ import { useGlobalCallListener } from '../hooks/useGlobalCallListener';
 import { useFirebaseOutgoingCall } from '../hooks/useFirebaseOutgoingCall';
 import { useFirebaseWebRtcCall } from '../hooks/useFirebaseWebRtcCall';
 import { getCallRouteForPeer } from '../lib/callNavigation';
+import {
+  getFirebaseData,
+  listenFirebaseValue,
+  liveTranscriptPathForPhone,
+  storeSessionCode,
+} from '../lib/firebaseRealtime';
 import { normalizePhoneNumber } from '../lib/phoneUtils';
 import { getWakwakUser, WAKWAK_USER_CHANGED_EVENT } from '../lib/wakwakUser';
 
@@ -27,6 +33,7 @@ export function CallSystemProvider({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [callToast, setCallToast] = React.useState(null);
+  const [globalLiveTranscript, setGlobalLiveTranscript] = React.useState(null);
   const navigatedCallKeyRef = useRef(null);
   const pushAcceptHandledRef = useRef(false);
   const firebaseAcceptHandledRef = useRef(null);
@@ -89,6 +96,31 @@ export function CallSystemProvider({ children }) {
   });
 
   usePushNotification(myPhoneNumber);
+
+  useEffect(() => {
+    const path = liveTranscriptPathForPhone(myPhoneNumber);
+    if (!path) return undefined;
+
+    let latestTimestamp = 0;
+    const applyTranscript = (transcript) => {
+      if (!transcript || typeof transcript !== 'object') return;
+      const timestamp = Number(transcript.timestamp) || 0;
+      if (timestamp && timestamp < latestTimestamp) return;
+      latestTimestamp = timestamp;
+      if (transcript.code) storeSessionCode(transcript.code);
+      setGlobalLiveTranscript(transcript);
+    };
+
+    const stop = listenFirebaseValue(path, applyTranscript);
+    const poll = setInterval(() => {
+      getFirebaseData(path).then(applyTranscript).catch(() => {});
+    }, 300);
+
+    return () => {
+      stop();
+      clearInterval(poll);
+    };
+  }, [myPhoneNumber]);
 
   const callSystem = useCallSystem(myPhoneNumber, myRole, {
     onToast,
@@ -183,6 +215,7 @@ export function CallSystemProvider({ children }) {
       getRealtimeStatus,
       firebaseIncomingCall,
       firebaseActiveCode,
+      globalLiveTranscript,
       acceptFirebaseIncomingCall,
       rejectFirebaseIncomingCall,
       presenceByPhone,
@@ -194,6 +227,7 @@ export function CallSystemProvider({ children }) {
       getRealtimeStatus,
       firebaseIncomingCall,
       firebaseActiveCode,
+      globalLiveTranscript,
       acceptFirebaseIncomingCall,
       rejectFirebaseIncomingCall,
       presenceByPhone,

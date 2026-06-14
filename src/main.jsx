@@ -9,7 +9,7 @@ import { initSocket } from './lib/socket'
 // Enregistrement du Service Worker pour le support PWA
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
+    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
       .then((reg) => {
         reg.update().catch(() => {});
         console.log('Service Worker enregistré avec succès ! Portée :', reg.scope);
