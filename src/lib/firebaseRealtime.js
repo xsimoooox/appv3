@@ -298,6 +298,15 @@ export async function joinRealtimeCall({ code, uid, calleeName = '', calleePhone
   });
 }
 
+export async function acknowledgeRealtimeCall(code, calleeName = '') {
+  if (!code) return;
+  await setFirebaseData(`calls/${code}/accepted`, {
+    accepted: true,
+    calleeName: calleeName || 'Interlocuteur',
+    timestamp: Date.now(),
+  });
+}
+
 export async function clearCallInvite(targetPhone, code) {
   const phoneKey = inviteKeyFromPhone(targetPhone);
   if (!phoneKey || !code) return;

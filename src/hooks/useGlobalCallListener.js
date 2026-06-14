@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  acknowledgeRealtimeCall,
   clearCallInvite,
   endRealtimeCall,
   getClientUid,
@@ -201,6 +202,7 @@ export function useGlobalCallListener({ onAcceptCall, onRejectCall } = {}) {
     const uid = getClientUid(myRoleRef.current === 'hearing' ? 'hearing' : 'deaf');
     const calleeName = getWakwakUser()?.name || '';
     storeSessionCode(call.code);
+    acknowledgeRealtimeCall(call.code, calleeName).catch(() => {});
 
     dismissCode(call.code);
     dismissedRef.current.add(call.code);

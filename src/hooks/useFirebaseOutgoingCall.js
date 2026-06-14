@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   clearCallInvite,
   endRealtimeCall,
+  getFirebaseData,
   listenFirebaseValue,
 } from '../lib/firebaseRealtime';
 import { setPresenceAvailable } from '../lib/presenceFirebase';
@@ -92,9 +93,23 @@ export function useFirebaseOutgoingCall({ onToast, onStartCall, onStopCall } = {
       completeOutgoing();
     });
 
+    const stopAccepted = listenFirebaseValue(`calls/${code}/accepted`, (accepted) => {
+      if (accepted?.accepted) completeOutgoing();
+    });
+
+    const pollAccepted = setInterval(() => {
+      getFirebaseData(`calls/${code}/accepted`)
+        .then((accepted) => {
+          if (accepted?.accepted) completeOutgoing();
+        })
+        .catch(() => {});
+    }, 250);
+
     return () => {
       stopCall();
       stopSession();
+      stopAccepted();
+      clearInterval(pollAccepted);
     };
   }, [outgoing?.code, outgoing?.status, completeOutgoing, cancelFirebaseOutgoing, onToast]);
 
