@@ -1,7 +1,7 @@
 import { invitePhoneKey } from './callInvite';
 
-const DATABASE_URL = 'https://sign-langage-default-rtdb.firebaseio.com';
-const API_KEY = 'AIzaSyDWVNNE_7-Ea1Cd5mPUZuh3pDGlEG64DGM';
+const DATABASE_URL = 'https://voxmanus-f01de-default-rtdb.firebaseio.com';
+const API_KEY = 'AIzaSyDFZ8SJsnEOgydg56_WzgHgmMF4EU3tyvk';
 
 const langMap = {
   Français: 'fr-FR',

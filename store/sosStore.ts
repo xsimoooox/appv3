@@ -12,7 +12,7 @@ import {
 } from '../types/sos.types';
 
 // REST endpoints for Firebase (replicating existing app behavior without heavy SDK overhead)
-const DATABASE_URL = 'https://sign-langage-default-rtdb.firebaseio.com';
+const DATABASE_URL = 'https://voxmanus-f01de-default-rtdb.firebaseio.com';
 
 async function syncSosAlertToFirebase(status: SosStatus, data: Record<string, unknown>): Promise<void> {
   try {

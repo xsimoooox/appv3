@@ -1,7 +1,7 @@
 /* global process */
 
 const DATABASE_URL =
-  process.env.FIREBASE_DATABASE_URL || 'https://sign-langage-default-rtdb.firebaseio.com';
+  process.env.FIREBASE_DATABASE_URL || 'https://voxmanus-f01de-default-rtdb.firebaseio.com';
 const DATABASE_AUTH_TOKEN = process.env.FIREBASE_DATABASE_AUTH_TOKEN || '';
 
 function pathUrl(phoneNumber) {
