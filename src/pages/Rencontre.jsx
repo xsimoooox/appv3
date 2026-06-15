@@ -792,68 +792,49 @@ export default function Rencontre() {
       simGloveIntervalRef.current = null;
       setSimGloveActive(false);
       showToast("⏹️ Simulation gant arrêtée");
-      return;
+    } else {
+      setSimGloveActive(true);
+      showToast("▶️ Simulation gant active (3s)");
+      
+      let idx = simGloveIdx;
+      const glovePhrases = [
+        "Bonjour",
+        "Je suis",
+        "content",
+        "de vous",
+        "rencontrer"
+      ];
+      
+      const runStep = () => {
+        const phrase = glovePhrases[idx % glovePhrases.length];
+        idx++;
+        setSimGloveIdx(idx);
+        
+        setVosSignes(`🤟 ${phrase}`);
+        setSigningActive(true);
+        setPulseZoneA(true);
+        
+        setTimeout(() => {
+          setPulseZoneA(false);
+        }, 400);
+        
+        setTimeout(() => {
+          setSigningActive(false);
+        }, 1500);
+        
+        // Save glove message to history
+        setTranscriptHistory(prev => [...prev, {
+          id: generateUUID(),
+          sender: 'glove_user',
+          text: phrase,
+          timestamp: new Date().toISOString()
+        }]);
+        publishGloveToSession(phrase, true);
+      };
+      
+      runStep(); // Run first immediately
+      simGloveIntervalRef.current = setInterval(runStep, 3000);
     }
-
-    setSimGloveActive(true);
-    showToast("▶️ Simulation gant active");
-
-    const glovePhrases = [
-      'Hello, welcome to the School of Digital Engineering and Artificial Intelligence.',
-      'We offer training programs in artificial intelligence, software development, cybersecurity, and data science.',
-      'What projects do students work on?',
-      'They develop intelligent applications, robots, and innovative projects.',
-      'Can I visit the laboratories?',
-      'Yes, visits are organized regularly.',
-      'Thank you very much.',
-      'Goodbye and have a nice day.'
-    ];
-
-    let idx = 0;
-
-    const stopSimulation = () => {
-      if (simGloveIntervalRef.current) {
-        clearInterval(simGloveIntervalRef.current);
-        simGloveIntervalRef.current = null;
-      }
-      setSimGloveActive(false);
-      showToast('✅ Simulation gant terminée');
-    };
-
-    const runStep = () => {
-      if (idx >= glovePhrases.length) {
-        stopSimulation();
-        return;
-      }
-
-      const phrase = glovePhrases[idx];
-      idx += 1;
-      setSimGloveIdx(idx);
-
-      setVosSignes(`🤟 ${phrase}`);
-      setSigningActive(true);
-      setPulseZoneA(true);
-
-      setTimeout(() => {
-        setPulseZoneA(false);
-      }, 400);
-
-      setTimeout(() => {
-        setSigningActive(false);
-      }, 1500);
-
-      setTranscriptHistory(prev => [...prev, {
-        id: generateUUID(),
-        sender: 'glove_user',
-        text: phrase,
-        timestamp: new Date().toISOString()
-      }]);
-
-      publishGloveToSession(phrase, true);
-    };
-
-    runStep();
-    simGloveIntervalRef.current = setInterval(runStep, 6000);
   };
 
   // Full reset and stop simulation controls
@@ -1426,16 +1407,6 @@ export default function Rencontre() {
                   >
                     <Hand size={22} strokeWidth={2.25} />
                     <span>{conversationTurn === 'deaf' ? 'Signer' : 'Attente…'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleToggleSimulateGlove}
-                    disabled={conversationTurn !== 'deaf'}
-                    className="avatar-action-btn avatar-action-btn--avatar disabled:opacity-40"
-                    aria-label="Simulate Glove Signs"
-                  >
-                    <Hand size={22} strokeWidth={2.25} />
-                    <span>{simGloveActive ? 'Stop Simulation' : 'Simulate Glove Signs'}</span>
                   </button>
                   <button
                     type="button"
