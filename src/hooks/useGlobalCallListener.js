@@ -204,39 +204,36 @@ export function useGlobalCallListener({ onAcceptCall, onRejectCall } = {}) {
     storeSessionCode(call.code);
     const rtcPromise = Promise.resolve(onAcceptCall?.(call.code)).catch(() => {});
 
+    dismissCode(call.code);
+    dismissedRef.current.add(call.code);
+
+    const contactId = findContactIdForIncoming(
+      myRoleRef.current,
+      call.callerPhone,
+      call.targetContactId,
+    );
+    const joinPath = buildCallJoinPath(myRoleRef.current, contactId, call.code);
+
+    setIncomingCall(null);
+    ringingRef.current = null;
+
     try {
-      await Promise.all([
-        acknowledgeRealtimeCall(call.code, calleeName),
-        joinRealtimeCall({
-          code: call.code,
-          uid,
-          calleeName,
-          calleePhone: myPhone,
-        }),
-      ]);
-
-      dismissCode(call.code);
-      dismissedRef.current.add(call.code);
-
-      const contactId = findContactIdForIncoming(
-        myRoleRef.current,
-        call.callerPhone,
-        call.targetContactId,
-      );
-      const joinPath = buildCallJoinPath(myRoleRef.current, contactId, call.code);
-
-      setIncomingCall(null);
-      ringingRef.current = null;
-
-      try {
-        navigate(joinPath);
-      } catch {
-        window.location.assign(joinPath);
-      }
-    } finally {
-      setAccepting(false);
-      await rtcPromise;
+      navigate(joinPath);
+    } catch {
+      window.location.assign(joinPath);
     }
+
+    setAccepting(false);
+    await Promise.allSettled([
+      acknowledgeRealtimeCall(call.code, calleeName),
+      joinRealtimeCall({
+        code: call.code,
+        uid,
+        calleeName,
+        calleePhone: myPhone,
+      }),
+      rtcPromise,
+    ]);
   }, [navigate, accepting, myPhone, onAcceptCall]);
 
   const rejectIncomingCall = useCallback(async () => {

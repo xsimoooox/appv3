@@ -178,7 +178,12 @@ function ContactList() {
     if (!activeCall?.withPhone) return;
     const phone = getContactPhone({ phone: activeCall.withPhone });
     const contact = contacts.find((c) => getContactPhone(c) === phone);
-    if (contact) navigate(`/entendant/call/${contact.id}`);
+    if (contact) {
+      const code = activeCall.sessionCode
+        ? `?code=${encodeURIComponent(activeCall.sessionCode)}`
+        : '';
+      navigate(`/entendant/call/${contact.id}${code}`);
+    }
   }, [activeCall, navigate, contacts]);
 
   const statusLabel = (status) => {

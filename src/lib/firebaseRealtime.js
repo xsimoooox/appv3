@@ -264,7 +264,8 @@ export async function createRealtimeCall({
 
   const targetRole = callerRole === 'deaf' ? 'hearing' : 'deaf';
   const routePrefix = targetRole === 'hearing' ? '/entendant/call' : '/call';
-  const acceptUrl = `${routePrefix}/${targetContactId || (targetRole === 'hearing' ? 'amina' : 'c1')}?code=${encodeURIComponent(code)}&accept=1`;
+  const receiverRouteId = targetRole === 'hearing' ? 'amina' : 'c1';
+  const acceptUrl = `${routePrefix}/${receiverRouteId}?code=${encodeURIComponent(code)}&accept=1`;
   if (notifyTarget) {
     fetch('/api/calls/notify', {
       method: 'POST',

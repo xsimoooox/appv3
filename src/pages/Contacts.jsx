@@ -410,7 +410,8 @@ export default function Contacts() {
   };
 
   // Get active contact
-  const activeContact = contacts.find(c => c.id === id);
+  const activeContact = contacts.find(c => c.id === id)
+    || (screen === 'call' ? contacts[0] : undefined);
 
   const handleCallContact = useCallback(
     async (contact) => {
@@ -463,7 +464,10 @@ export default function Contacts() {
     const phone = getContactPhone({ phone: activeCall.withPhone });
     const contact = contacts.find((c) => getContactPhone(c) === phone);
     if (contact && screen !== 'call') {
-      navigate(`/call/${contact.id}`);
+      const code = activeCall.sessionCode
+        ? `?code=${encodeURIComponent(activeCall.sessionCode)}`
+        : '';
+      navigate(`/call/${contact.id}${code}`);
     }
   }, [activeCall, contacts, screen, navigate]);
 

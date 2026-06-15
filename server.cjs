@@ -52,16 +52,29 @@ function callRoomName(phoneA, phoneB) {
   return key ? `call:${key}` : '';
 }
 
+function phoneRoomName(phone) {
+  const clean = cleanPhone(phone);
+  return clean ? `phone:${clean}` : '';
+}
+
+function socketIdsInRoom(room) {
+  return room ? [...(io.sockets.adapter.rooms.get(room) || [])] : [];
+}
+
 async function joinCallRoom(phoneA, phoneB) {
   const room = callRoomName(phoneA, phoneB);
   if (!room) return '';
-  const socketIds = await Promise.all([
-    resolveSocketIdByPhone(phoneA),
-    resolveSocketIdByPhone(phoneB),
+  const phoneASocketIds = socketIdsInRoom(phoneRoomName(phoneA));
+  const phoneBSocketIds = socketIdsInRoom(phoneRoomName(phoneB));
+  const phoneRoomSocketIds = [...phoneASocketIds, ...phoneBSocketIds];
+  const resolvedSocketIds = await Promise.all([
+    phoneASocketIds.length > 0 ? null : resolveSocketIdByPhone(phoneA),
+    phoneBSocketIds.length > 0 ? null : resolveSocketIdByPhone(phoneB),
   ]);
+  const socketIds = [...new Set([...phoneRoomSocketIds, ...resolvedSocketIds].filter(Boolean))];
   const joinedSocketIds = [];
   await Promise.all(
-    socketIds.filter(Boolean).map(async (socketId) => {
+    socketIds.map(async (socketId) => {
       const liveSocket = io.sockets.sockets.get(socketId);
       if (liveSocket && !liveSocket.rooms.has(room)) {
         await liveSocket.join(room);
@@ -78,16 +91,14 @@ async function joinCallRoom(phoneA, phoneB) {
 function leaveCallRoom(phoneA, phoneB) {
   const room = callRoomName(phoneA, phoneB);
   if (!room) return;
-  [resolveSocketByPhone(phoneA), resolveSocketByPhone(phoneB)]
-    .filter(Boolean)
-    .forEach((socketId) => io.sockets.sockets.get(socketId)?.leave(room));
+  socketIdsInRoom(room).forEach((socketId) => io.sockets.sockets.get(socketId)?.leave(room));
 }
 
 function emitTurnChange(phoneA, phoneB, canSpeak) {
-  const socketA = resolveSocketByPhone(phoneA);
-  const socketB = resolveSocketByPhone(phoneB);
-  if (socketA) io.to(socketA).emit('turn_change', { canSpeak });
-  if (socketB) io.to(socketB).emit('turn_change', { canSpeak });
+  const roomA = phoneRoomName(phoneA);
+  const roomB = phoneRoomName(phoneB);
+  if (roomA) io.to(roomA).emit('turn_change', { canSpeak });
+  if (roomB) io.to(roomB).emit('turn_change', { canSpeak });
 }
 
 function resolveSocketByUserId(userId) {
@@ -368,6 +379,8 @@ io.on('connection', (socket) => {
       `[SOCKET] Enregistré: userId=${uid}, phone=${socket.data.phoneNumber || 'n/a'}, socketId=${socket.id}, total=${onlineUsers.size}`,
     );
 
+    const personalRoom = phoneRoomName(socket.data.phoneNumber);
+    if (personalRoom) await socket.join(personalRoom);
     await autoJoinActiveCallRooms(socket);
 
     socket.emit('registered', { userId: uid, socketId: socket.id });
@@ -383,6 +396,22 @@ io.on('connection', (socket) => {
         status: 'online',
       });
     }
+  });
+
+  socket.on('join_call_room', async ({ callerPhone, targetPhone } = {}, acknowledge) => {
+    const cleanCaller = cleanPhone(callerPhone);
+    const cleanTarget = cleanPhone(targetPhone);
+    const socketPhone = cleanPhone(socket.data.phoneNumber);
+    const room = callRoomName(cleanCaller, cleanTarget);
+
+    if (!room || (socketPhone !== cleanCaller && socketPhone !== cleanTarget)) {
+      acknowledge?.({ joined: false });
+      return;
+    }
+
+    await socket.join(room);
+    await joinCallRoom(cleanCaller, cleanTarget);
+    acknowledge?.({ joined: true, room });
   });
 
   socket.on('call_user', async (data) => {
@@ -476,7 +505,7 @@ io.on('connection', (socket) => {
         await joinCallRoom(callerPhone, targetPhone);
       }
 
-      io.to(targetSocketId).emit('incoming_call', {
+      io.to(phoneRoomName(targetPhone) || targetSocketId).emit('incoming_call', {
         callerId: callerStr,
         callerName,
         callerPhone,
@@ -520,7 +549,7 @@ io.on('connection', (socket) => {
       const targetIdResolved = (await resolveUserIdFromPhone(cleanTarget)) || cleanTarget;
 
       await joinCallRoom(cleanCaller, cleanTarget);
-      io.to(targetSocketId).emit('incoming_call', {
+      io.to(phoneRoomName(cleanTarget) || targetSocketId).emit('incoming_call', {
         callerPhone: cleanCaller,
         callerName: callerName || cleanCaller,
         targetPhone: cleanTarget,
@@ -590,9 +619,9 @@ io.on('connection', (socket) => {
 
   socket.on('accept_call', async ({ callerPhone, targetPhone }) => {
     console.log(`[ACCEPT] ${targetPhone} accepts call from ${callerPhone}`);
-    const callerSocketId = await resolveSocketIdByPhone(callerPhone);
     const cleanCaller = cleanPhone(callerPhone);
     const cleanTarget = cleanPhone(targetPhone);
+    const callerRoom = phoneRoomName(cleanCaller);
     const key = callPairKey(cleanCaller, cleanTarget);
     await joinCallRoom(cleanCaller, cleanTarget);
     const pending = pendingSocketCalls.get(callPairKey(cleanCaller, cleanTarget));
@@ -602,8 +631,8 @@ io.on('connection', (socket) => {
     }
     callTurns.set(key, cleanCaller);
     emitTurnChange(cleanCaller, cleanTarget, cleanCaller);
-    if (callerSocketId) {
-      io.to(callerSocketId).emit('call_accepted', {
+    if (socketIdsInRoom(callerRoom).length > 0) {
+      io.to(callerRoom).emit('call_accepted', {
         by: cleanTarget,
         sessionCode,
         timestamp: Date.now(),
@@ -611,7 +640,7 @@ io.on('connection', (socket) => {
       io.emit('user_status_change', { phoneNumber: cleanCaller, status: 'busy' });
       io.emit('user_status_change', { phoneNumber: cleanTarget, status: 'busy' });
     }
-    socket.emit('call_accepted', {
+    io.to(phoneRoomName(cleanTarget)).emit('call_accepted', {
       by: cleanCaller,
       sessionCode,
       timestamp: Date.now(),
@@ -657,8 +686,11 @@ io.on('connection', (socket) => {
     const sequence = (callTranscriptSequences.get(key) || 0) + 1;
     callTranscriptSequences.set(key, sequence);
 
-    const room = await joinCallRoom(cleanCaller, cleanTarget);
-    const targetSocketId = await resolveSocketIdByPhone(targetPhone);
+    const room = callRoomName(cleanCaller, cleanTarget);
+    const targetRoom = phoneRoomName(cleanTarget);
+    if (room && !socket.rooms.has(room)) {
+      await socket.join(room);
+    }
     const payload = {
       from: cleanCaller,
       targetPhone: cleanTarget,
@@ -668,16 +700,18 @@ io.on('connection', (socket) => {
       timestamp: Date.now(),
     };
 
-    const targetJoinedRoom =
-      room && targetSocketId && io.sockets.adapter.rooms.get(room)?.has(targetSocketId);
+    const callRoomSocketIds = new Set(socketIdsInRoom(room));
+    const targetSocketIds = socketIdsInRoom(targetRoom);
+    const targetJoinedRoom = targetSocketIds.some((socketId) => callRoomSocketIds.has(socketId));
     if (targetJoinedRoom) {
       socket.to(room).emit('receive_voice_text', payload);
       if (isFinal) console.log(`[VOICE_TEXT] ${cleanCaller} -> ${room} final #${sequence}`);
-    } else if (targetSocketId) {
-      io.to(targetSocketId).emit('receive_voice_text', payload);
+    } else if (targetSocketIds.length > 0) {
+      io.to(targetRoom).emit('receive_voice_text', payload);
       if (isFinal) {
-        console.log(`[VOICE_TEXT] ${cleanCaller} -> ${targetSocketId} fallback final #${sequence}`);
+        console.log(`[VOICE_TEXT] ${cleanCaller} -> ${targetRoom} fallback final #${sequence}`);
       }
+      joinCallRoom(cleanCaller, cleanTarget).catch(() => {});
     }
 
     if (isFinal) {
@@ -722,9 +756,9 @@ io.on('connection', (socket) => {
         socket.data.phoneNumber === cleanPhone(callerPhone)
           ? cleanPhone(targetPhone)
           : cleanPhone(callerPhone);
-      const otherSocket = resolveSocketByPhone(otherPhone);
-      if (otherSocket) {
-        io.to(otherSocket).emit('call_ended', { by: socket.data.phoneNumber });
+      const otherRoom = phoneRoomName(otherPhone);
+      if (socketIdsInRoom(otherRoom).length > 0) {
+        io.to(otherRoom).emit('call_ended', { by: socket.data.phoneNumber });
       }
       io.emit('user_status_change', { phoneNumber: cleanPhone(callerPhone), status: 'online' });
       io.emit('user_status_change', { phoneNumber: cleanPhone(targetPhone), status: 'online' });
@@ -732,9 +766,9 @@ io.on('connection', (socket) => {
   });
 
   socket.on('call_timeout', ({ callerPhone, targetPhone }) => {
-    const targetSocketId = resolveSocketByPhone(targetPhone);
-    if (targetSocketId) {
-      io.to(targetSocketId).emit('call_cancelled', { by: callerPhone });
+    const targetRoom = phoneRoomName(targetPhone);
+    if (socketIdsInRoom(targetRoom).length > 0) {
+      io.to(targetRoom).emit('call_cancelled', { by: callerPhone });
     }
     if (callerPhone) {
       io.emit('user_status_change', { phoneNumber: cleanPhone(callerPhone), status: 'online' });

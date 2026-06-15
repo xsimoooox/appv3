@@ -461,6 +461,10 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
     socket.on('register_confirmed', () => setIsRegistered(true));
 
     socket.on('incoming_call', (data) => {
+      socket.emit('join_call_room', {
+        callerPhone: data.callerPhone,
+        targetPhone: data.targetPhone || myPhoneNumber,
+      });
       pendingCallRef.current = data;
       setIncomingCall(data);
       playRingtone();
@@ -501,8 +505,16 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
       stopRingtone();
       const peerPhone = data.by || outgoingCallRef.current?.targetPhone;
       const sessionCode = data.sessionCode || outgoingCallRef.current?.sessionCode || '';
+      socket.emit('join_call_room', {
+        callerPhone: myPhoneNumber,
+        targetPhone: peerPhone,
+      });
       setOutgoingCall(null);
-      setActiveCall({ withPhone: peerPhone, sessionCode, startTime: Date.now() });
+      setActiveCall((current) => (
+        current?.withPhone === peerPhone
+          ? { ...current, sessionCode: sessionCode || current.sessionCode }
+          : { withPhone: peerPhone, sessionCode, startTime: Date.now() }
+      ));
       onToast?.('✅ Appel accepté', 'success');
     });
 
@@ -644,56 +656,59 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
     const offer = incomingCall.offer;
     const socket = getSocket();
 
+    socket?.emit('join_call_room', {
+      callerPhone,
+      targetPhone: myPhoneNumber,
+    });
+    socket?.emit('accept_call', {
+      callerPhone,
+      targetPhone: myPhoneNumber,
+    });
+
+    setActiveCall({
+      withPhone: callerPhone,
+      sessionCode: incomingCall.sessionCode || '',
+      startTime: Date.now(),
+    });
+    setIncomingCall(null);
+    pendingCallRef.current = null;
+
+    if (!offer || !callerId) return;
+
     try {
-      if (offer && callerId) {
-        cleanupPeerConnection();
-        localStreamRef.current = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: false,
-        });
-        peerConnectionRef.current = new RTCPeerConnection(RTC_CONFIG);
-        localStreamRef.current
-          .getTracks()
-          .forEach((t) => peerConnectionRef.current.addTrack(t, localStreamRef.current));
-
-        setupPeerIceHandler(callerId);
-
-        await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(offer));
-        await flushPendingIceCandidates();
-        const answer = await peerConnectionRef.current.createAnswer();
-        await peerConnectionRef.current.setLocalDescription(answer);
-
-        socket?.emit('answer_call', {
-          callerId: String(callerId),
-          answer,
-          callerPhone,
-          targetPhone: myPhoneNumber,
-        });
-      } else {
-        socket?.emit('accept_call', {
-          callerPhone,
-          targetPhone: myPhoneNumber,
-        });
-      }
-
-      setActiveCall({
-        withPhone: callerPhone,
-        sessionCode: incomingCall.sessionCode || '',
-        startTime: Date.now(),
+      cleanupPeerConnection();
+      localStreamRef.current = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: false,
       });
-      setIncomingCall(null);
-      pendingCallRef.current = null;
+      peerConnectionRef.current = new RTCPeerConnection(RTC_CONFIG);
+      localStreamRef.current
+        .getTracks()
+        .forEach((t) => peerConnectionRef.current.addTrack(t, localStreamRef.current));
+
+      setupPeerIceHandler(callerId);
+
+      await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(offer));
+      await flushPendingIceCandidates();
+      const answer = await peerConnectionRef.current.createAnswer();
+      await peerConnectionRef.current.setLocalDescription(answer);
+
+      socket?.emit('answer_call', {
+        callerId: String(callerId),
+        answer,
+        callerPhone,
+        targetPhone: myPhoneNumber,
+      });
     } catch (err) {
       console.error('[ACCEPTER]', err);
-      cleanupCall();
-      onToast?.("Erreur lors de l'acceptation de l'appel", 'error');
+      cleanupPeerConnection();
+      onToast?.("Appel rejoint, mais l'audio est encore indisponible", 'info');
     }
   }, [
     incomingCall,
     myPhoneNumber,
     clearCallTimeout,
     stopRingtone,
-    cleanupCall,
     cleanupPeerConnection,
     flushPendingIceCandidates,
     setupPeerIceHandler,

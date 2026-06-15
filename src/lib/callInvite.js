@@ -52,8 +52,10 @@ export function findContactIdForIncoming(role, callerPhone, fallbackId) {
           (c) => normalizePhoneNumber(c.phoneNumber || c.phone) === normalizePhoneNumber(callerPhone),
         );
         if (match?.id) return match.id;
+        if (fallbackId && list.some((contact) => contact.id === fallbackId)) return fallbackId;
+        if (list[0]?.id) return list[0].id;
       }
-      return fallbackId || 'amina';
+      return 'amina';
     }
     const raw = localStorage.getItem('contacts');
     if (raw) {
@@ -62,10 +64,12 @@ export function findContactIdForIncoming(role, callerPhone, fallbackId) {
         (c) => normalizePhoneNumber(c.phone || c.phoneNumber) === normalizePhoneNumber(callerPhone),
       );
       if (match?.id) return match.id;
+      if (fallbackId && list.some((contact) => contact.id === fallbackId)) return fallbackId;
+      if (list[0]?.id) return list[0].id;
     }
-    return fallbackId || 'c1';
+    return 'c1';
   } catch {
-    return fallbackId || (role === 'hearing' ? 'amina' : 'c1');
+    return role === 'hearing' ? 'amina' : 'c1';
   }
 }
 
