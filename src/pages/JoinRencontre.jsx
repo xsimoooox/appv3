@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
-import { getClientUid, getRencontreSession, joinRencontreSession } from '../lib/firebaseRealtime';
+import { getRencontreSession } from '../lib/firebaseRealtime';
 
 export default function JoinRencontre() {
   const { sessionId } = useParams();
@@ -32,11 +32,8 @@ export default function JoinRencontre() {
           return;
         }
 
-        localStorage.setItem('voxmanus_profile', 'entendant');
-        await joinRencontreSession(sessionId, getClientUid('hearing'));
-
         if (!cancelled) {
-          navigate('/entendant/rencontre', { replace: true, state: { sessionId } });
+          navigate(`/entendant/rencontre/${encodeURIComponent(sessionId)}`, { replace: true });
         }
       } catch {
         if (!cancelled) setError('Impossible de rejoindre la session. Vérifiez votre connexion.');

@@ -411,17 +411,19 @@ export default function Rencontre() {
       endRencontreSession(sessionToken).catch(() => {});
     }
     const token = generateUUID();
-    setSessionToken(token);
-    setQrContent(buildRencontreJoinUrl(token));
-    setTimerSeconds(1800);
-    setIsExpired(false);
     try {
       const hostLabel =
         avatar === 'alex' ? 'Alex' : avatar === 'frizitta' ? 'Frizitta' : 'Interlocuteur';
       await createRencontreSession(token, rencontreHostUidRef.current, {
         hostDisplayName: hostLabel,
       });
+      setSessionToken(token);
+      setQrContent(buildRencontreJoinUrl(token));
+      setTimerSeconds(1800);
+      setIsExpired(false);
     } catch {
+      setSessionToken('');
+      setQrContent('');
       showToast('⚠️ Impossible de créer la session');
     }
   };

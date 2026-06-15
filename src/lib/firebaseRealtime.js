@@ -425,7 +425,14 @@ export async function joinRencontreSession(sessionId, guestUid) {
     guestUid,
     status: 'active',
     turn: 'hearing',
+    guestLastSeen: Date.now(),
   });
+
+  const joined = await getRencontreSession(sessionId);
+  if (!joined || joined.status !== 'active' || joined.guestUid !== guestUid) {
+    throw new Error('session_join_not_confirmed');
+  }
+  return joined;
 }
 
 export async function sendRencontreVoice(sessionId, { text, isFinal, lang }) {
@@ -459,22 +466,33 @@ export async function endRencontreSession(sessionId) {
 
 export function listenRencontreSession(sessionId, { onMeta, onVoice, onGlove, onConnection }) {
   const stops = [];
+  const applySession = (data) => {
+    if (!data || typeof data !== 'object') return;
+    onMeta?.({
+      status: data.status,
+      hostUid: data.hostUid,
+      hostDisplayName: data.hostDisplayName,
+      guestUid: data.guestUid,
+      expiresAt: data.expiresAt,
+      createdAt: data.createdAt,
+      turn: data.turn,
+    });
+    if (data.voice) onVoice?.(data.voice);
+    if (data.glove) onGlove?.(data.glove);
+  };
 
-  if (onMeta || onConnection) {
-    stops.push(listenFirebaseValue(rencontrePath(sessionId), (data) => {
-      if (!data || typeof data !== 'object') return;
-      onMeta?.({
-        status: data.status,
-        hostUid: data.hostUid,
-        hostDisplayName: data.hostDisplayName,
-        guestUid: data.guestUid,
-        expiresAt: data.expiresAt,
-        createdAt: data.createdAt,
-        turn: data.turn,
-      });
-      if (data.voice) onVoice?.(data.voice);
-      if (data.glove) onGlove?.(data.glove);
-    }, onConnection));
+  if (onMeta || onVoice || onGlove || onConnection) {
+    stops.push(listenFirebaseValue(rencontrePath(sessionId), applySession, onConnection));
+
+    const poll = setInterval(() => {
+      getRencontreSession(sessionId)
+        .then((data) => {
+          applySession(data);
+          onConnection?.('connected');
+        })
+        .catch(() => onConnection?.('reconnecting'));
+    }, 1500);
+    stops.push(() => clearInterval(poll));
   }
 
   return () => stops.forEach((stop) => stop());

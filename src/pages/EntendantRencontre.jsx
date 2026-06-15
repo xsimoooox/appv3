@@ -114,7 +114,6 @@ export default function EntendantRencontre() {
   const [linkBorder, setLinkBorder] = useState('#e0e0e0');
   const [toast, setToast] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [showReader, setShowReader] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [scanError, setScanError] = useState('');
   const [conversationTurn, setConversationTurn] = useState('hearing');
@@ -130,6 +129,7 @@ export default function EntendantRencontre() {
   const finalTranscriptRef = useRef('');
   const voiceSendLockRef = useRef(false);
   const lastVoiceSendRef = useRef({ text: '', timestamp: 0 });
+  const joiningTokenRef = useRef('');
   const isMicroOnRef = useRef(false);
   const isSoundOnRef = useRef(true);
   const sessionMessagesRef = useRef([]);
@@ -215,26 +215,31 @@ export default function EntendantRencontre() {
   }, [appendMessage, conversationTurn, showToastMsg]);
 
   const resetScanUI = useCallback(() => {
-    setShowReader(false);
     setIsScanning(false);
     setCameraReady(false);
-    setScanError('');
     scanHandledRef.current = false;
+  }, []);
+
+  const disposeScanner = useCallback(async (scanner) => {
+    if (!scanner) return;
+    try {
+      if (scanner.isScanning) await scanner.stop();
+    } catch {
+      /* scanner may already be stopped */
+    }
+    try {
+      await scanner.clear();
+    } catch {
+      /* reader may already be clear */
+    }
   }, []);
 
   const stopQRScan = useCallback(async () => {
     const scanner = html5QrCodeRef.current;
-    if (scanner) {
-      try {
-        await scanner.stop();
-        await scanner.clear();
-      } catch {
-        /* ignore */
-      }
-    }
     html5QrCodeRef.current = null;
+    await disposeScanner(scanner);
     resetScanUI();
-  }, [resetScanUI]);
+  }, [disposeScanner, resetScanUI]);
 
   const rejoindreAvecTokenRef = useRef(null);
 
@@ -255,10 +260,14 @@ export default function EntendantRencontre() {
 
   const startQRScan = useCallback(async () => {
     if (isScanning || html5QrCodeRef.current) return;
-    setShowReader(true);
     setScanError('');
     setCameraReady(false);
     scanHandledRef.current = false;
+
+    if (!window.isSecureContext && !['localhost', '127.0.0.1'].includes(window.location.hostname)) {
+      setScanError('Le scanner caméra nécessite une connexion HTTPS sécurisée.');
+      return;
+    }
 
     const config = {
       fps: 10,
@@ -276,7 +285,7 @@ export default function EntendantRencontre() {
       const scanner = new Html5Qrcode('qr-reader');
       html5QrCodeRef.current = scanner;
       await scanner.start(
-        { facingMode: { exact: 'environment' } },
+        { facingMode: 'environment' },
         config,
         onSuccess,
         () => {},
@@ -286,11 +295,19 @@ export default function EntendantRencontre() {
       console.log('[SCANNER] Camera started (rear)');
     } catch (err) {
       console.error('[SCANNER] Error:', err);
+      const failedScanner = html5QrCodeRef.current;
+      html5QrCodeRef.current = null;
+      await disposeScanner(failedScanner);
       try {
+        const cameras = await Html5Qrcode.getCameras();
+        const preferred =
+          cameras.find(camera => /back|rear|environment|arri/i.test(camera.label))
+          || cameras[0];
+        if (!preferred?.id) throw err;
         const scanner = new Html5Qrcode('qr-reader');
         html5QrCodeRef.current = scanner;
         await scanner.start(
-          { facingMode: 'environment' },
+          preferred.id,
           config,
           onSuccess,
           () => {},
@@ -300,12 +317,15 @@ export default function EntendantRencontre() {
         console.log('[SCANNER] Camera started (rear, fallback)');
       } catch (err2) {
         console.error('[SCANNER] Fallback error:', err2);
+        const failedScanner = html5QrCodeRef.current;
+        html5QrCodeRef.current = null;
+        await disposeScanner(failedScanner);
         setScanError('Impossible d\'accéder à la caméra. Vérifiez les permissions.');
         showToastMsg('❌ Caméra inaccessible', 'error');
         resetScanUI();
       }
     }
-  }, [isScanning, onQRDecoded, resetScanUI, showToastMsg]);
+  }, [disposeScanner, isScanning, onQRDecoded, resetScanUI, showToastMsg]);
 
   const demarrerMicro = useCallback((token) => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -464,6 +484,7 @@ export default function EntendantRencontre() {
       setTimeout(() => {
         setEtat('scan');
         setSessionToken(null);
+        joiningTokenRef.current = '';
         setSessionStartTime(null);
         setSessionMessages([]);
         setAvatarUsed(null);
@@ -479,7 +500,8 @@ export default function EntendantRencontre() {
   }, [avatarUsed, cleanupSession, sessionStartTime, sessionToken, showToastMsg]);
 
   const rejoindreAvecToken = useCallback(async (token) => {
-    if (!token) return;
+    if (!token || joiningTokenRef.current === token) return;
+    joiningTokenRef.current = token;
     setSessionToken(token);
     showToastMsg('🔍 Connexion à la session...', 'info');
 
@@ -489,18 +511,21 @@ export default function EntendantRencontre() {
         showToastMsg('❌ Session introuvable ou expirée', 'error');
         setSessionToken(null);
         scanHandledRef.current = false;
+        joiningTokenRef.current = '';
         return;
       }
       if (session.expiresAt && Date.now() > session.expiresAt) {
         showToastMsg('❌ Session expirée', 'error');
         setSessionToken(null);
         scanHandledRef.current = false;
+        joiningTokenRef.current = '';
         return;
       }
       if (session.status === 'ended') {
         showToastMsg('❌ Session terminée', 'error');
         setSessionToken(null);
         scanHandledRef.current = false;
+        joiningTokenRef.current = '';
         return;
       }
 
@@ -548,10 +573,18 @@ export default function EntendantRencontre() {
       showToastMsg('❌ Impossible de rejoindre la session', 'error');
       setSessionToken(null);
       scanHandledRef.current = false;
+      joiningTokenRef.current = '';
     }
   }, [afficherSignText, demarrerSession, showToastMsg, stopQRScan, terminerSession]);
 
-  rejoindreAvecTokenRef.current = rejoindreAvecToken;
+  useEffect(() => {
+    rejoindreAvecTokenRef.current = rejoindreAvecToken;
+    return () => {
+      if (rejoindreAvecTokenRef.current === rejoindreAvecToken) {
+        rejoindreAvecTokenRef.current = null;
+      }
+    };
+  }, [rejoindreAvecToken]);
 
   const rejoindreSession = () => {
     const token = parseSessionIdFromJoinInput(linkInput);
@@ -749,12 +782,6 @@ export default function EntendantRencontre() {
   }, [cleanupSession]);
 
   useEffect(() => {
-    if (etat === 'scan' && !isScanning && !showReader) {
-      startQRScan();
-    }
-  }, [etat]);
-
-  useEffect(() => {
     const fromRoute = routeSessionId;
     const fromState = location.state?.sessionId;
     const token = fromRoute || fromState;
@@ -823,7 +850,7 @@ export default function EntendantRencontre() {
               )}
               <div
                 id="qr-reader"
-                className={`w-full h-full ${showReader ? 'block' : 'hidden'}`}
+                className="block w-full h-full"
               />
             </div>
 

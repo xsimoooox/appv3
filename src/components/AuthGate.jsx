@@ -10,16 +10,20 @@ export default function AuthGate({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const isAuthPage = location.pathname === '/';
+  const isPublicRencontreRoute =
+    location.pathname.startsWith('/join/')
+    || location.pathname === '/entendant/rencontre'
+    || location.pathname.startsWith('/entendant/rencontre/');
 
   useEffect(() => {
     const user = getVoxManusUser();
 
-    if (isAuthPage) return;
+    if (isAuthPage || isPublicRencontreRoute) return;
 
     if (!user) {
       navigate('/', { replace: true });
     }
-  }, [isAuthPage, location.pathname, navigate]);
+  }, [isAuthPage, isPublicRencontreRoute, location.pathname, navigate]);
 
   return children;
 }
