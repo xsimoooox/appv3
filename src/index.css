@@ -689,6 +689,7 @@ button:disabled {
 .vox-welcome h1 {
   position: relative;
   margin: 7px 0;
+  color: #fff;
   font-size: clamp(25px, 4vw, 38px);
   letter-spacing: -.04em;
 }
