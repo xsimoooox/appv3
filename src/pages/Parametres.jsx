@@ -21,7 +21,6 @@ import {
   Settings,
   Shield,
   Sun,
-  Toggle2,
   Trash2,
   User,
   Volume2,
