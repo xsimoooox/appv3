@@ -79,11 +79,17 @@ export default function Rencontre() {
   const [interlocuteurDit, setInterlocuteurDit] = useState('');
   const texteGant = vosSignes;
   const gantActif = signingActive;
-  const texteInterlocuteur = interlocuteurDit;
   const modeAvatar = avatar;
   const microActif = microActive;
   const [gloveBubble, setGloveBubble] = useState({ words: [], typing: false, waiting: false });
-  const [voiceBubble, setVoiceBubble] = useState({ words: [], typing: false, waiting: true });
+  const [voiceBubble, setVoiceBubble] = useState({
+    words: [],
+    completedThrough: -1,
+    activeFrom: -1,
+    activeTo: -1,
+    exiting: false,
+    waiting: true,
+  });
   const [transcriptHistory, setTranscriptHistory] = useState([]); // Array of { sender, text, timestamp }
   const [showEndDialog, setShowEndDialog] = useState(false);
   const [showPostSessionSummary, setShowPostSessionSummary] = useState(false);
@@ -122,6 +128,7 @@ export default function Rencontre() {
   const simVoiceIntervalRef = useRef(null);
   const postSessionTimeoutRef = useRef(null);
   const bubbleTimersRef = useRef({ glove: [], voice: [] });
+  const voiceBubbleTimersRef = useRef([]);
 
   // Session start time tracking
   const sessionStartTimeRef = useRef(null);
@@ -132,6 +139,60 @@ export default function Rencontre() {
   const clearBubbleTimers = (channel) => {
     bubbleTimersRef.current[channel].forEach(timerId => clearTimeout(timerId));
     bubbleTimersRef.current[channel] = [];
+  };
+
+  const clearVoiceBubbleTimers = () => {
+    voiceBubbleTimersRef.current.forEach(timerId => clearTimeout(timerId));
+    voiceBubbleTimersRef.current = [];
+  };
+
+  const beginVoiceBubble = (text) => {
+    clearVoiceBubbleTimers();
+    setVoiceBubble({
+      words: text.trim().split(/\s+/).filter(Boolean),
+      completedThrough: -1,
+      activeFrom: -1,
+      activeTo: -1,
+      exiting: false,
+      waiting: false,
+    });
+  };
+
+  const updateVoiceBubbleProgress = (activeFrom, activeTo = activeFrom) => {
+    setVoiceBubble(prev => ({
+      ...prev,
+      completedThrough: Math.max(prev.completedThrough, activeFrom - 1),
+      activeFrom,
+      activeTo,
+      exiting: false,
+      waiting: false,
+    }));
+  };
+
+  const completeVoiceBubble = () => {
+    clearVoiceBubbleTimers();
+    setVoiceBubble(prev => ({
+      ...prev,
+      completedThrough: prev.words.length - 1,
+      activeFrom: -1,
+      activeTo: -1,
+      exiting: false,
+    }));
+
+    const exitTimer = setTimeout(() => {
+      setVoiceBubble(prev => ({ ...prev, exiting: true }));
+    }, 2200);
+    const clearTimer = setTimeout(() => {
+      setVoiceBubble({
+        words: [],
+        completedThrough: -1,
+        activeFrom: -1,
+        activeTo: -1,
+        exiting: false,
+        waiting: true,
+      });
+    }, 2700);
+    voiceBubbleTimersRef.current.push(exitTimer, clearTimer);
   };
 
   const runBubbleCycle = (channel, sourceText, setBubble, fallbackText = '') => {
@@ -177,13 +238,10 @@ export default function Rencontre() {
   }, [texteGant]);
 
   useEffect(() => {
-    runBubbleCycle('voice', texteInterlocuteur, setVoiceBubble);
-  }, [texteInterlocuteur]);
-
-  useEffect(() => {
     return () => {
       clearBubbleTimers('glove');
       clearBubbleTimers('voice');
+      clearVoiceBubbleTimers();
     };
   }, []);
 
@@ -448,6 +506,7 @@ export default function Rencontre() {
             url: frizittaDb[char], 
             char: char,
             word: word,
+            wordIndex: index,
             charNum: charIdx + 1,
             totalChars: word.length
           });
@@ -476,10 +535,12 @@ export default function Rencontre() {
       
       if (idx >= seq.length) {
         // Complete, reset to Neutral pose
+        frizittaPlaybackRef.current.active = false;
         setCurrentLetterUrl(frizittaDb['NEUTRE'] || '');
         setCurrentLetter('');
         setCurrentWord('');
         setFrizittaIdxInfo({ num: 0, total: 0 });
+        completeVoiceBubble();
         return;
       }
       
@@ -487,6 +548,7 @@ export default function Rencontre() {
       setCurrentLetterUrl(item.url);
       
       if (item.type === 'letter') {
+        updateVoiceBubbleProgress(item.wordIndex);
         setCurrentLetter(item.char);
         setCurrentWord(item.word);
         setFrizittaIdxInfo({ num: item.charNum, total: item.totalChars });
@@ -549,7 +611,7 @@ export default function Rencontre() {
           return normalized === twoWords;
         });
         if (compound) {
-          sequence.push({ url: compound.url, word: twoWords });
+          sequence.push({ url: compound.url, word: twoWords, wordIndex: i, wordCount: 2 });
           i += 2;
           continue;
         }
@@ -557,7 +619,7 @@ export default function Rencontre() {
       // Mot seul
       const url = findInAlex(words[i]);
       if (url) {
-        sequence.push({ url: url, word: words[i] });
+        sequence.push({ url: url, word: words[i], wordIndex: i, wordCount: 1 });
       } else {
         skipped.push(words[i]);
       }
@@ -572,7 +634,10 @@ export default function Rencontre() {
     
     const videoA = videoARef.current;
     const videoB = videoBRef.current;
-    if (!videoA || !videoB) return;
+    if (!videoA || !videoB) {
+      completeVoiceBubble();
+      return;
+    }
     
     alexPlaybackRef.current.sequence = sequence;
     alexPlaybackRef.current.index = 0;
@@ -590,8 +655,10 @@ export default function Rencontre() {
       const seq = alexPlaybackRef.current.sequence;
       
       if (seqIndex >= seq.length) {
+        alexPlaybackRef.current.active = false;
         setCurrentAlexWord('');
         setAlexIdxInfo({ num: 0, total: 0 });
+        completeVoiceBubble();
         return;
       }
       
@@ -600,6 +667,10 @@ export default function Rencontre() {
       const nextVideo = currentVideoId === 'A' ? videoB : videoA;
       
       const currentItem = seq[seqIndex];
+      updateVoiceBubbleProgress(
+        currentItem.wordIndex,
+        currentItem.wordIndex + currentItem.wordCount - 1,
+      );
       setCurrentAlexWord(currentItem.word.toUpperCase());
       setAlexIdxInfo({ num: seqIndex + 1, total: seq.length });
       
@@ -633,8 +704,10 @@ export default function Rencontre() {
             playNextAlex();
           } else {
             // Finished
+            alexPlaybackRef.current.active = false;
             setCurrentAlexWord('');
             setAlexIdxInfo({ num: 0, total: 0 });
+            completeVoiceBubble();
           }
         }
       };
@@ -678,6 +751,7 @@ export default function Rencontre() {
     };
     setTranscriptHistory(prev => [...prev, newMessage]);
     setInterlocuteurDit(text);
+    beginVoiceBubble(text);
 
     // Playback based on avatar mode
     if (avatar === 'frizitta') {
@@ -690,7 +764,11 @@ export default function Rencontre() {
       setAlexSkippedWords(skipped);
       if (sequence.length > 0) {
         startAlexPlayback(sequence);
+      } else {
+        completeVoiceBubble();
       }
+    } else {
+      completeVoiceBubble();
     }
   };
 
@@ -1249,7 +1327,7 @@ export default function Rencontre() {
 
               {/* 2. ZONE C — interlocuteur — juste sous A */}
               <div className="bg-[#F9FAFB] px-3 py-2 flex flex-col items-end shrink-0 min-h-[80px] max-h-[140px] h-auto select-text overflow-hidden">
-                <div className="relative bg-[#f3f4f6] rounded-[18px_0px_18px_18px] px-4 py-2 border border-[#e5e7eb] shadow-[0_1px_2px_rgba(0,0,0,0.06)] max-w-[75%] ml-auto before:content-[''] before:absolute before:top-0 before:right-[-7px] before:w-0 before:h-0 before:border-t-[8px] before:border-t-[#f3f4f6] before:border-l-[8px] before:border-l-transparent">
+                <div className={`rencontre-voice-bubble relative bg-[#f3f4f6] rounded-[18px_0px_18px_18px] px-4 py-2 border border-[#e5e7eb] shadow-[0_1px_2px_rgba(0,0,0,0.06)] max-w-[75%] ml-auto before:content-[''] before:absolute before:top-0 before:right-[-7px] before:w-0 before:h-0 before:border-t-[8px] before:border-t-[#f3f4f6] before:border-l-[8px] before:border-l-transparent${voiceBubble.exiting ? ' rencontre-voice-bubble--exiting' : ''}`}>
                   <span className="block text-[11px] italic text-[#6B7280] mb-[4px] select-none">
                     🗣️ L'interlocuteur dit :
                   </span>
@@ -1263,11 +1341,21 @@ export default function Rencontre() {
                     ) : voiceBubble.words.length > 0 ? (
                       <span className="flex flex-wrap gap-x-1">
                         {voiceBubble.words.map((word, wIdx) => (
-                          <span key={`${word}-${wIdx}`} className="animate-fade-in inline-block">
+                          <span
+                            key={`${word}-${wIdx}`}
+                            className={`rencontre-voice-word${
+                              wIdx <= voiceBubble.completedThrough
+                                ? ' rencontre-voice-word--completed'
+                                : ''
+                            }${
+                              wIdx >= voiceBubble.activeFrom && wIdx <= voiceBubble.activeTo
+                                ? ' rencontre-voice-word--active'
+                                : ''
+                            }`}
+                          >
                             {word}
                           </span>
                         ))}
-                        {voiceBubble.typing && <span className="animate-blink">|</span>}
                       </span>
                     ) : (
                       '...'

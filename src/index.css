@@ -104,6 +104,46 @@
   animation-delay: 400ms;
 }
 
+.rencontre-voice-bubble {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.rencontre-voice-bubble--exiting {
+  opacity: 0;
+  transform: translateY(0.4rem);
+}
+
+.rencontre-voice-word {
+  display: inline-block;
+  color: #6b7280;
+  font-weight: 600;
+  transition: color 0.3s ease, text-shadow 0.3s ease, transform 0.3s ease;
+}
+
+.rencontre-voice-word--active {
+  color: transparent;
+  background: linear-gradient(90deg, #4f46e5 0 50%, #6b7280 50% 100%);
+  background-size: 210% 100%;
+  background-position: 100% 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: rencontre-voice-word-progress 0.55s ease forwards;
+  transform: translateY(-1px);
+}
+
+.rencontre-voice-word--completed {
+  color: #4f46e5;
+  text-shadow: 0 1px 8px rgba(79, 70, 229, 0.18);
+}
+
+@keyframes rencontre-voice-word-progress {
+  to {
+    background-position: 0 0;
+  }
+}
+
 /* Section avatar Rencontre / Appel sourde — layout et espacements identiques */
 .rencontre-avatar-section {
   display: flex;
