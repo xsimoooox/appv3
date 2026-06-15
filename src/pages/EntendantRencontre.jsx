@@ -18,11 +18,14 @@ import {
 } from '../lib/firebaseRealtime';
 
 const GLOVE_SIM_EN = [
-  'Hello, nice to meet you',
-  'I am deaf, I use sign language',
-  'Thank you for helping me',
-  'How are you today?',
-  'I understand what you are saying',
+  'Hello, welcome to the School of Digital Engineering and Artificial Intelligence.',
+  'We offer training programs in artificial intelligence, software development, cybersecurity, and data science.',
+  'What projects do students work on?',
+  'They develop intelligent applications, robots, and innovative projects.',
+  'Can I visit the laboratories?',
+  'Yes, visits are organized regularly.',
+  'Thank you very much.',
+  'Goodbye and have a nice day.',
 ];
 
 function genUUID() {
