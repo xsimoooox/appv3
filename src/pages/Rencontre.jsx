@@ -1338,12 +1338,30 @@ export default function Rencontre() {
 
               {/* 2. ZONE C — interlocuteur — juste sous A */}
               <div className="bg-[#F9FAFB] px-3 py-2 flex flex-col items-end shrink-0 min-h-[80px] max-h-[140px] h-auto select-text overflow-hidden">
-                <div className="relative bg-[#f3f4f6] rounded-[18px_0px_18px_18px] px-4 py-2 border border-[#e5e7eb] shadow-[0_1px_2px_rgba(0,0,0,0.06)] max-w-[75%] ml-auto before:content-[''] before:absolute before:top-0 before:right-[-7px] before:w-0 before:h-0 before:border-t-[8px] before:border-t-[#f3f4f6] before:border-l-[8px] before:border-l-transparent">
+                <div className={`rencontre-message-phrase relative bg-[#f3f4f6] rounded-[18px_0px_18px_18px] px-4 py-2 border border-[#e5e7eb] shadow-[0_1px_2px_rgba(0,0,0,0.06)] max-w-[75%] ml-auto before:content-[''] before:absolute before:top-0 before:right-[-7px] before:w-0 before:h-0 before:border-t-[8px] before:border-t-[#f3f4f6] before:border-l-[8px] before:border-l-transparent${avatarPhrase.exiting ? ' rencontre-message-phrase--exiting' : ''}`}>
                   <span className="block text-[11px] italic text-[#6B7280] mb-[4px] select-none">
                     🗣️ L'interlocuteur dit :
                   </span>
                   <div className="text-[14px] font-normal text-[#1f2937] leading-[19px] max-h-[57px] overflow-y-auto pr-1">
-                    {voiceBubble.waiting ? (
+                    {avatarPhrase.words.length > 0 ? (
+                      <span className="flex flex-wrap gap-x-1">
+                        {avatarPhrase.words.map((word, wordIndex) => {
+                          const completed = wordIndex <= avatarPhrase.completedThrough;
+                          const active =
+                            wordIndex >= avatarPhrase.activeFrom && wordIndex <= avatarPhrase.activeTo;
+                          return (
+                            <span
+                              key={`${word}-${wordIndex}`}
+                              className={`rencontre-message-word${
+                                completed ? ' rencontre-message-word--completed' : ''
+                              }${active ? ' rencontre-message-word--active' : ''}`}
+                            >
+                              {word}
+                            </span>
+                          );
+                        })}
+                      </span>
+                    ) : voiceBubble.waiting ? (
                       <span className="inline-flex items-center gap-1 text-[#6B7280]">
                         <span className="animate-blink-1">●</span>
                         <span className="animate-blink-2">●</span>
@@ -1376,28 +1394,6 @@ export default function Rencontre() {
                 videoARef={videoARef}
                 videoBRef={videoBRef}
                 activeVideo={activeVideo}
-                overlay={avatarPhrase.words.length > 0 ? (
-                  <div
-                    className={`rencontre-avatar-phrase${avatarPhrase.exiting ? ' rencontre-avatar-phrase--exiting' : ''}`}
-                    aria-live="polite"
-                  >
-                    {avatarPhrase.words.map((word, wordIndex) => {
-                      const completed = wordIndex <= avatarPhrase.completedThrough;
-                      const active =
-                        wordIndex >= avatarPhrase.activeFrom && wordIndex <= avatarPhrase.activeTo;
-                      return (
-                        <span
-                          key={`${word}-${wordIndex}`}
-                          className={`rencontre-avatar-phrase__word${
-                            completed ? ' rencontre-avatar-phrase__word--completed' : ''
-                          }${active ? ' rencontre-avatar-phrase__word--active' : ''}`}
-                        >
-                          {word}
-                        </span>
-                      );
-                    })}
-                  </div>
-                ) : null}
               >
                 <div className="avatar-actions shrink-0">
                   <button
