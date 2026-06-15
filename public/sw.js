@@ -1,4 +1,4 @@
-const CACHE_NAME = 'voxmanus-v7';
+const CACHE_NAME = 'voxmanus-v8';
 const ASSETS = ['/', '/index.html', '/manifest.json'];
 
 const DEFAULT_API = 'http://localhost:3001';
@@ -7,6 +7,7 @@ self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS).catch(() => {})),
   );
+  try { console.info('[sw] install - cache:', CACHE_NAME); } catch {};
   self.skipWaiting();
 });
 
