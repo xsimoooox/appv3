@@ -100,6 +100,13 @@ export default function Rencontre() {
   const [alexIdxInfo, setAlexIdxInfo] = useState({ num: 0, total: 0 });
   const [alexSkippedWords, setAlexSkippedWords] = useState([]);
   const [activeVideo, setActiveVideo] = useState('A');
+  const [avatarPhrase, setAvatarPhrase] = useState({
+    words: [],
+    completedThrough: -1,
+    activeFrom: -1,
+    activeTo: -1,
+    exiting: false,
+  });
 
   // Video refs for Alex Double Buffer
   const videoARef = useRef(null);
@@ -122,6 +129,7 @@ export default function Rencontre() {
   const simVoiceIntervalRef = useRef(null);
   const postSessionTimeoutRef = useRef(null);
   const bubbleTimersRef = useRef({ glove: [], voice: [] });
+  const avatarPhraseTimersRef = useRef([]);
 
   // Session start time tracking
   const sessionStartTimeRef = useRef(null);
@@ -132,6 +140,67 @@ export default function Rencontre() {
   const clearBubbleTimers = (channel) => {
     bubbleTimersRef.current[channel].forEach(timerId => clearTimeout(timerId));
     bubbleTimersRef.current[channel] = [];
+  };
+
+  const clearAvatarPhraseTimers = () => {
+    avatarPhraseTimersRef.current.forEach(timerId => clearTimeout(timerId));
+    avatarPhraseTimersRef.current = [];
+  };
+
+  const beginAvatarPhrase = (text) => {
+    clearAvatarPhraseTimers();
+    setAvatarPhrase({
+      words: text.trim().split(/\s+/).filter(Boolean),
+      completedThrough: -1,
+      activeFrom: -1,
+      activeTo: -1,
+      exiting: false,
+    });
+  };
+
+  const setAvatarPhraseProgress = (activeFrom, activeTo = activeFrom) => {
+    setAvatarPhrase(prev => ({
+      ...prev,
+      completedThrough: Math.max(prev.completedThrough, activeFrom - 1),
+      activeFrom,
+      activeTo,
+      exiting: false,
+    }));
+  };
+
+  const completeAvatarPhrase = () => {
+    setAvatarPhrase(prev => ({
+      ...prev,
+      completedThrough: prev.words.length - 1,
+      activeFrom: -1,
+      activeTo: -1,
+      exiting: false,
+    }));
+
+    const exitTimer = setTimeout(() => {
+      setAvatarPhrase(prev => ({ ...prev, exiting: true }));
+    }, 2200);
+    const clearTimer = setTimeout(() => {
+      setAvatarPhrase({
+        words: [],
+        completedThrough: -1,
+        activeFrom: -1,
+        activeTo: -1,
+        exiting: false,
+      });
+    }, 2750);
+    avatarPhraseTimersRef.current.push(exitTimer, clearTimer);
+  };
+
+  const clearAvatarPhrase = () => {
+    clearAvatarPhraseTimers();
+    setAvatarPhrase({
+      words: [],
+      completedThrough: -1,
+      activeFrom: -1,
+      activeTo: -1,
+      exiting: false,
+    });
   };
 
   const runBubbleCycle = (channel, sourceText, setBubble, fallbackText = '') => {
@@ -184,6 +253,7 @@ export default function Rencontre() {
     return () => {
       clearBubbleTimers('glove');
       clearBubbleTimers('voice');
+      clearAvatarPhraseTimers();
     };
   }, []);
 
@@ -278,8 +348,8 @@ export default function Rencontre() {
       if (simGloveIntervalRef.current) clearInterval(simGloveIntervalRef.current);
       if (simVoiceIntervalRef.current) clearInterval(simVoiceIntervalRef.current);
       if (postSessionTimeoutRef.current) clearTimeout(postSessionTimeoutRef.current);
-      stopFrizittaPlayback();
-      stopAlexPlayback();
+      stopFrizittaPlayback(true);
+      stopAlexPlayback(true);
     };
   }, []);
 
@@ -448,6 +518,7 @@ export default function Rencontre() {
             url: frizittaDb[char], 
             char: char,
             word: word,
+            wordIndex: index,
             charNum: charIdx + 1,
             totalChars: word.length
           });
@@ -476,10 +547,12 @@ export default function Rencontre() {
       
       if (idx >= seq.length) {
         // Complete, reset to Neutral pose
+        frizittaPlaybackRef.current.active = false;
         setCurrentLetterUrl(frizittaDb['NEUTRE'] || '');
         setCurrentLetter('');
         setCurrentWord('');
         setFrizittaIdxInfo({ num: 0, total: 0 });
+        completeAvatarPhrase();
         return;
       }
       
@@ -487,6 +560,7 @@ export default function Rencontre() {
       setCurrentLetterUrl(item.url);
       
       if (item.type === 'letter') {
+        setAvatarPhraseProgress(item.wordIndex);
         setCurrentLetter(item.char);
         setCurrentWord(item.word);
         setFrizittaIdxInfo({ num: item.charNum, total: item.totalChars });
@@ -507,7 +581,7 @@ export default function Rencontre() {
     play();
   };
 
-  const stopFrizittaPlayback = () => {
+  const stopFrizittaPlayback = (clearPhrase = false) => {
     frizittaPlaybackRef.current.active = false;
     if (frizittaPlaybackRef.current.timer) {
       clearTimeout(frizittaPlaybackRef.current.timer);
@@ -516,6 +590,7 @@ export default function Rencontre() {
     setCurrentWord('');
     setFrizittaIdxInfo({ num: 0, total: 0 });
     setCurrentLetterUrl(frizittaDb ? frizittaDb['NEUTRE'] || '' : '');
+    if (clearPhrase) clearAvatarPhrase();
   };
 
   // Algorithme de Recherche Alex
@@ -549,7 +624,7 @@ export default function Rencontre() {
           return normalized === twoWords;
         });
         if (compound) {
-          sequence.push({ url: compound.url, word: twoWords });
+          sequence.push({ url: compound.url, word: twoWords, wordIndex: i, wordCount: 2 });
           i += 2;
           continue;
         }
@@ -557,7 +632,7 @@ export default function Rencontre() {
       // Mot seul
       const url = findInAlex(words[i]);
       if (url) {
-        sequence.push({ url: url, word: words[i] });
+        sequence.push({ url: url, word: words[i], wordIndex: i, wordCount: 1 });
       } else {
         skipped.push(words[i]);
       }
@@ -590,8 +665,10 @@ export default function Rencontre() {
       const seq = alexPlaybackRef.current.sequence;
       
       if (seqIndex >= seq.length) {
+        alexPlaybackRef.current.active = false;
         setCurrentAlexWord('');
         setAlexIdxInfo({ num: 0, total: 0 });
+        completeAvatarPhrase();
         return;
       }
       
@@ -600,6 +677,10 @@ export default function Rencontre() {
       const nextVideo = currentVideoId === 'A' ? videoB : videoA;
       
       const currentItem = seq[seqIndex];
+      setAvatarPhraseProgress(
+        currentItem.wordIndex,
+        currentItem.wordIndex + currentItem.wordCount - 1,
+      );
       setCurrentAlexWord(currentItem.word.toUpperCase());
       setAlexIdxInfo({ num: seqIndex + 1, total: seq.length });
       
@@ -633,8 +714,10 @@ export default function Rencontre() {
             playNextAlex();
           } else {
             // Finished
+            alexPlaybackRef.current.active = false;
             setCurrentAlexWord('');
             setAlexIdxInfo({ num: 0, total: 0 });
+            completeAvatarPhrase();
           }
         }
       };
@@ -648,7 +731,7 @@ export default function Rencontre() {
     playNextAlex();
   };
 
-  const stopAlexPlayback = () => {
+  const stopAlexPlayback = (clearPhrase = false) => {
     alexPlaybackRef.current.active = false;
     setCurrentAlexWord('');
     setAlexIdxInfo({ num: 0, total: 0 });
@@ -663,6 +746,7 @@ export default function Rencontre() {
       videoBRef.current.ontimeupdate = null;
       videoBRef.current.src = '';
     }
+    if (clearPhrase) clearAvatarPhrase();
   };
 
   // Trigger when a new voice input / translation text arrives
@@ -678,6 +762,7 @@ export default function Rencontre() {
     };
     setTranscriptHistory(prev => [...prev, newMessage]);
     setInterlocuteurDit(text);
+    beginAvatarPhrase(text);
 
     // Playback based on avatar mode
     if (avatar === 'frizitta') {
@@ -690,7 +775,11 @@ export default function Rencontre() {
       setAlexSkippedWords(skipped);
       if (sequence.length > 0) {
         startAlexPlayback(sequence);
+      } else {
+        completeAvatarPhrase();
       }
+    } else {
+      completeAvatarPhrase();
     }
   };
 
@@ -759,8 +848,8 @@ export default function Rencontre() {
       setSimVoiceActive(false);
     }
     
-    stopFrizittaPlayback();
-    stopAlexPlayback();
+    stopFrizittaPlayback(true);
+    stopAlexPlayback(true);
     
     setVosSignes('🤟 En attente des signes du gant...');
     setInterlocuteurDit('');
@@ -795,8 +884,8 @@ export default function Rencontre() {
       setSimVoiceActive(false);
     }
     
-    stopFrizittaPlayback();
-    stopAlexPlayback();
+    stopFrizittaPlayback(true);
+    stopAlexPlayback(true);
 
     const endTime = new Date().toISOString();
     const startTime = sessionStartTimeRef.current || endTime;
@@ -1287,6 +1376,28 @@ export default function Rencontre() {
                 videoARef={videoARef}
                 videoBRef={videoBRef}
                 activeVideo={activeVideo}
+                overlay={avatarPhrase.words.length > 0 ? (
+                  <div
+                    className={`rencontre-avatar-phrase${avatarPhrase.exiting ? ' rencontre-avatar-phrase--exiting' : ''}`}
+                    aria-live="polite"
+                  >
+                    {avatarPhrase.words.map((word, wordIndex) => {
+                      const completed = wordIndex <= avatarPhrase.completedThrough;
+                      const active =
+                        wordIndex >= avatarPhrase.activeFrom && wordIndex <= avatarPhrase.activeTo;
+                      return (
+                        <span
+                          key={`${word}-${wordIndex}`}
+                          className={`rencontre-avatar-phrase__word${
+                            completed ? ' rencontre-avatar-phrase__word--completed' : ''
+                          }${active ? ' rencontre-avatar-phrase__word--active' : ''}`}
+                        >
+                          {word}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : null}
               >
                 <div className="avatar-actions shrink-0">
                   <button
@@ -1302,8 +1413,8 @@ export default function Rencontre() {
                   <button
                     type="button"
                     onClick={() => {
-                      stopFrizittaPlayback();
-                      stopAlexPlayback();
+                      stopFrizittaPlayback(true);
+                      stopAlexPlayback(true);
                       setShowAvatarOverlay(true);
                     }}
                     className="avatar-action-btn avatar-action-btn--avatar"
