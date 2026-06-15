@@ -713,6 +713,8 @@ function CallScreen({ contact }) {
   const liveTranscriptRef = useRef('');
   const lastPublishedTranscriptRef = useRef('');
   const interimFinalizeTimerRef = useRef(null);
+  const recognitionCommitTimerRef = useRef(null);
+  const recognitionRestartTimerRef = useRef(null);
   const mountedRef = useRef(false);
   const socketCallActiveAtMountRef = useRef(Boolean(activeCall?.withPhone));
   const micOnRef = useRef(true);
@@ -833,6 +835,7 @@ function CallScreen({ contact }) {
       if (data?.glove?.text) onSignReceived(data.glove.text, data.glove.timestamp);
       if (data?.status === 'ended' && !endedIntentionallyRef.current) {
         endedIntentionallyRef.current = true;
+        micOnRef.current = false;
         if (recognitionRef.current) {
           try {
             recognitionRef.current.stop();
@@ -931,9 +934,24 @@ function CallScreen({ contact }) {
       publishTranscript(cleaned, isFinal);
     };
 
+    const commitRecognitionResult = () => {
+      if (!micOnRef.current || recognitionRef.current !== recognition) return;
+      try {
+        recognition.stop();
+      } catch {
+        /* recognition already stopping */
+      }
+    };
+
+    const scheduleRecognitionCommit = () => {
+      clearTimeout(recognitionCommitTimerRef.current);
+      recognitionCommitTimerRef.current = setTimeout(commitRecognitionResult, 2400);
+    };
+
     recognition.onstart = () => {
       micOnRef.current = true;
       setMicOn(true);
+      scheduleRecognitionCommit();
       setSpeechStatus('écoute active');
     };
 
@@ -950,12 +968,19 @@ function CallScreen({ contact }) {
     };
 
     recognition.onend = () => {
+      clearTimeout(recognitionCommitTimerRef.current);
+      const confirmedText = liveTranscriptRef.current.trim();
+      if (confirmedText) {
+        emitVoiceText(confirmedText, true, transcriptTargetPhone);
+        publishTranscript(confirmedText, true);
+      }
       if (!micOnRef.current) {
         setSpeechStatus('micro coupé');
         return;
       }
       if (mountedRef.current) {
-        setTimeout(() => {
+        clearTimeout(recognitionRestartTimerRef.current);
+        recognitionRestartTimerRef.current = setTimeout(() => {
           try {
             recognition.start();
           } catch {
@@ -963,9 +988,11 @@ function CallScreen({ contact }) {
             setMicOn(false);
             setSpeechStatus('en attente micro');
           }
-        }, 700);
+        }, 180);
       }
     };
+
+    recognition.onspeechend = commitRecognitionResult;
 
     recognition.onresult = (event) => {
       if (!micOnRef.current) return;
@@ -1030,6 +1057,9 @@ function CallScreen({ contact }) {
     return () => {
       window.removeEventListener('pointerdown', startAfterInteraction);
       clearTimeout(interimFinalizeTimerRef.current);
+      clearTimeout(recognitionCommitTimerRef.current);
+      clearTimeout(recognitionRestartTimerRef.current);
+      recognition.onspeechend = null;
       recognition.onend = null;
       recognition.stop();
     };
@@ -1086,11 +1116,23 @@ function CallScreen({ contact }) {
     setHpOn(next);
   };
 
-  const finishCall = () => {
+  const finishCall = async () => {
     if (!window.confirm('Terminer la session ?\n\nLa conversation sera sauvegardée.')) return;
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
+    const finalTextToSend = liveTranscriptRef.current.trim();
+    if (finalTextToSend) {
+      emitVoiceText(finalTextToSend, true, transcriptTargetPhone);
+      await sendTranscript({
+        code: sessionCode,
+        text: finalTextToSend,
+        isFinal: true,
+        lang: speechLang,
+        targetPhone: transcriptTargetPhone,
+      }).catch(() => {});
+    }
+    micOnRef.current = false;
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
