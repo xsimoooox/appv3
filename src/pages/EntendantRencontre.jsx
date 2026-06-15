@@ -33,6 +33,46 @@ function genUUID() {
   });
 }
 
+function collapseRepeatedTranscript(text) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  for (let size = 1; size <= Math.floor(words.length / 2); size += 1) {
+    if (words.length % size !== 0) continue;
+    const phrase = words.slice(0, size).join(' ').toLocaleLowerCase();
+    const repeated = Array.from(
+      { length: words.length / size },
+      (_, index) => words.slice(index * size, (index + 1) * size).join(' ').toLocaleLowerCase(),
+    );
+    if (repeated.every(part => part === phrase)) return words.slice(0, size).join(' ');
+  }
+  return words.join(' ');
+}
+
+function mergeSpeechTranscript(currentText, incomingText) {
+  const current = collapseRepeatedTranscript(currentText);
+  const incoming = collapseRepeatedTranscript(incomingText);
+  if (!current) return incoming;
+  if (!incoming) return current;
+
+  const currentLower = current.toLocaleLowerCase();
+  const incomingLower = incoming.toLocaleLowerCase();
+  if (currentLower === incomingLower || currentLower.endsWith(incomingLower)) return current;
+  if (incomingLower.startsWith(currentLower)) return incoming;
+
+  const currentWords = current.split(/\s+/);
+  const incomingWords = incoming.split(/\s+/);
+  const maxOverlap = Math.min(currentWords.length, incomingWords.length);
+
+  for (let size = maxOverlap; size > 0; size -= 1) {
+    const currentEnd = currentWords.slice(-size).join(' ').toLocaleLowerCase();
+    const incomingStart = incomingWords.slice(0, size).join(' ').toLocaleLowerCase();
+    if (currentEnd === incomingStart) {
+      return [...currentWords, ...incomingWords.slice(size)].join(' ');
+    }
+  }
+
+  return `${current} ${incoming}`;
+}
+
 function RencontreToast({ message, type, onDone }) {
   useEffect(() => {
     const t = setTimeout(onDone, 2500);
@@ -88,6 +128,8 @@ export default function EntendantRencontre() {
   const devIntervalRef = useRef(null);
   const lastGloveRef = useRef('');
   const finalTranscriptRef = useRef('');
+  const voiceSendLockRef = useRef(false);
+  const lastVoiceSendRef = useRef({ text: '', timestamp: 0 });
   const isMicroOnRef = useRef(false);
   const isSoundOnRef = useRef(true);
   const sessionMessagesRef = useRef([]);
@@ -139,23 +181,36 @@ export default function EntendantRencontre() {
   }, []);
 
   const envoyerVoixTexte = useCallback((text, token) => {
-    if (!text?.trim() || !token) return;
+    const cleaned = text?.trim();
+    if (!cleaned || !token || voiceSendLockRef.current) return;
     if (conversationTurn !== 'hearing') {
       showToastMsg('⏳ Attendez la réponse de l\'interlocuteur sourd', 'info');
       return;
     }
+    const nowMs = Date.now();
+    if (
+      lastVoiceSendRef.current.text.toLocaleLowerCase() === cleaned.toLocaleLowerCase()
+      && nowMs - lastVoiceSendRef.current.timestamp < 2000
+    ) {
+      return;
+    }
+    voiceSendLockRef.current = true;
+    lastVoiceSendRef.current = { text: cleaned, timestamp: nowMs };
     const now = new Date().toISOString();
     const lang = getSpeechLang('Anglais');
 
-    setZoneCText(text.trim());
+    setZoneCText(cleaned);
     setVoiceTime(now);
-    appendMessage({ type: 'voice', content: text.trim(), timestamp: now });
-    sendRencontreVoice(token, { text: text.trim(), isFinal: true, lang })
+    appendMessage({ type: 'voice', content: cleaned, timestamp: now });
+    sendRencontreVoice(token, { text: cleaned, isFinal: true, lang })
       .then(() => setConversationTurn('deaf'))
-      .catch(() => showToastMsg('❌ Envoi voix impossible', 'error'));
+      .catch(() => showToastMsg('❌ Envoi voix impossible', 'error'))
+      .finally(() => {
+        voiceSendLockRef.current = false;
+      });
 
     if (bcRef.current) {
-      bcRef.current.postMessage({ type: 'VOICE_TEXT', text: text.trim(), timestamp: now });
+      bcRef.current.postMessage({ type: 'VOICE_TEXT', text: cleaned, timestamp: now });
     }
   }, [appendMessage, conversationTurn, showToastMsg]);
 
@@ -289,7 +344,10 @@ export default function EntendantRencontre() {
         else interim += t;
       }
       if (finalChunk.trim()) {
-        finalTranscriptRef.current = `${finalTranscriptRef.current} ${finalChunk}`.trim();
+        finalTranscriptRef.current = mergeSpeechTranscript(
+          finalTranscriptRef.current,
+          finalChunk,
+        );
       }
       const display = finalTranscriptRef.current || interim;
       if (display) afficherVoixEnTempsReel(display);
