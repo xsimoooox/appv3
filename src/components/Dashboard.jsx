@@ -276,7 +276,7 @@ export default function Dashboard({ role = 'deaf' }) {
         <section className="vox-welcome">
           <div>
             <span className="vox-eyebrow">Votre espace VoxManus</span>
-            <h1 className="text-white">Bienvenue, {user?.name?.split(' ')[0] || 'utilisateur'} !</h1>
+            <h1>Bienvenue, {user?.name?.split(' ')[0] || 'utilisateur'} !</h1>
             <p>Votre communication reste fluide, accessible et à portée de main.</p>
           </div>
           <div className="vox-welcome__graphic" aria-hidden="true">
