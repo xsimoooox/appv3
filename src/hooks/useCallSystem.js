@@ -332,7 +332,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
   );
 
   const initiateWebRtcCall = useCallback(
-    async (targetUserId, targetPhone, targetName) => {
+    async (targetUserId, targetPhone, targetName, sessionCode = '') => {
       const socket = getSocket();
       if (!socket?.connected || !resolvedUserId) {
         onToast?.('Connexion serveur en cours…', 'error');
@@ -387,12 +387,14 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
             offer,
             callType: 'voice',
             callerName: targetName,
+            sessionCode,
           });
         });
 
         setOutgoingCall({
           targetPhone,
           targetUserId,
+          sessionCode,
           status: 'ringing',
           startedAt: Date.now(),
         });
@@ -498,8 +500,9 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
       clearCallTimeout();
       stopRingtone();
       const peerPhone = data.by || outgoingCallRef.current?.targetPhone;
+      const sessionCode = data.sessionCode || outgoingCallRef.current?.sessionCode || '';
       setOutgoingCall(null);
-      setActiveCall({ withPhone: peerPhone, startTime: Date.now() });
+      setActiveCall({ withPhone: peerPhone, sessionCode, startTime: Date.now() });
       onToast?.('✅ Appel accepté', 'success');
     });
 
@@ -675,6 +678,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
 
       setActiveCall({
         withPhone: callerPhone,
+        sessionCode: incomingCall.sessionCode || '',
         startTime: Date.now(),
       });
       setIncomingCall(null);
@@ -697,12 +701,12 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
   ]);
 
   const acceptCallFromPush = useCallback(
-    async (callerPhone) => {
+    async (callerPhone, sessionCode = '') => {
       const phone = (callerPhone || '').trim();
       if (!phone || !myPhoneNumber) return;
       clearCallTimeout();
       stopRingtone();
-      setActiveCall({ withPhone: phone, startTime: Date.now() });
+      setActiveCall({ withPhone: phone, sessionCode, startTime: Date.now() });
       setIncomingCall(null);
 
       const user = getVoxManusUser();
@@ -806,7 +810,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
   );
 
   const callUser = useCallback(
-    async (targetPhone, callerName) => {
+    async (targetPhone, callerName, sessionCode = '') => {
       if (!targetPhone) {
         console.error('[CALL] targetPhone is undefined');
         return;
@@ -842,6 +846,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
         target.id,
         target.phoneNumber || targetPhone,
         callerName || target.name,
+        sessionCode,
       );
     },
     [myPhoneNumber, resolvedUserId, onToast, initiateWebRtcCall],

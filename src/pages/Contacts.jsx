@@ -1043,6 +1043,7 @@ export default function Contacts() {
   useEffect(() => {
     if (!globalLiveTranscript) return;
     const transcript = globalLiveTranscript;
+    if (activeSessionCode && transcript.code && transcript.code !== activeSessionCode) return;
     const timestamp = Number(transcript.timestamp) || 0;
     if (timestamp && timestamp < lastTranscriptTimestampRef.current) return;
     if (timestamp) lastTranscriptTimestampRef.current = timestamp;
@@ -1118,7 +1119,8 @@ export default function Contacts() {
     setTimeout(() => setSigningActive(false), 1500);
     if (activeCall) {
       sendSignText(phrase);
-    } else if (activeSessionCode) {
+    }
+    if (activeSessionCode) {
       sendCallSign({ code: activeSessionCode, text: phrase }).catch(() => {
         showToast('Connexion temps réel indisponible');
       });

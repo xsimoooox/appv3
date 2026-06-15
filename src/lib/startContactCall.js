@@ -2,6 +2,7 @@ import { getSocket } from './socket';
 import { getVoxManusUser } from './voxmanusUser';
 import {
   createRealtimeCall,
+  endRealtimeCall,
   generateSessionCode,
   getClientUid,
   storeSessionCode,
@@ -25,13 +26,14 @@ export async function startFirebaseCall({
   contactId,
   routePrefix,
   targetPhone = '',
+  code = generateSessionCode(),
+  notifyTarget = true,
 }) {
   const normalizedTargetPhone = normalizePhoneNumber(targetPhone);
   if (!normalizedTargetPhone) {
     throw new Error("Le contact n'a pas de numéro valide");
   }
 
-  const code = generateSessionCode();
   const uid = getClientUid(role === 'deaf' ? 'deaf' : 'hearing');
   const user = getVoxManusUser();
   const callerName = user?.name || (role === 'deaf' ? 'Personne sourde' : 'Personne entendante');
@@ -46,6 +48,7 @@ export async function startFirebaseCall({
     callerRole: role === 'deaf' ? 'deaf' : 'hearing',
     targetContactId: contactId,
     targetPhone: normalizedTargetPhone,
+    notifyTarget,
   });
 
   await touchRealtimeCall(code).catch(() => {});
@@ -75,12 +78,24 @@ export async function startContactCall({
   onError,
 }) {
   if (isSocketCallAvailable() && socketCallUser) {
+    const socketSession = await startFirebaseCall({
+      role,
+      contactId,
+      routePrefix,
+      targetPhone,
+      notifyTarget: false,
+    }).catch(() => null);
     try {
-      const started = await socketCallUser(targetPhone, contactName);
-      if (started) return { mode: 'socket' };
+      const started = socketSession?.code
+        ? await socketCallUser(targetPhone, contactName, socketSession.code)
+        : false;
+      if (started) return { mode: 'socket', ...socketSession };
     } catch (err) {
       console.warn('[CALL] Socket indisponible, passage à Firebase:', err);
       /* fallback firebase */
+    }
+    if (socketSession?.code) {
+      await endRealtimeCall(socketSession.code).catch(() => {});
     }
   }
 

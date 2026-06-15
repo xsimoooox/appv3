@@ -105,6 +105,7 @@ export function callUserById({
   offer,
   callType = 'voice',
   callerName,
+  sessionCode,
 }) {
   if (!socket?.connected) {
     console.error('[SOCKET] callUserById: socket non connecté');
@@ -121,6 +122,7 @@ export function callUserById({
     callerName,
     offer: offer || null,
     callType,
+    sessionCode,
   });
   return true;
 }

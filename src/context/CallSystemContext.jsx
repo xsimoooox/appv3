@@ -214,15 +214,23 @@ export function CallSystemProvider({ children }) {
     const callKey = `${peer}-${callSystem.activeCall.startTime}`;
     if (navigatedCallKeyRef.current === callKey) return;
 
-    const route = getCallRouteForPeer(peer, voxmanusUser.role);
+    const baseRoute = getCallRouteForPeer(peer, voxmanusUser.role);
+    const route = callSystem.activeCall.sessionCode
+      ? `${baseRoute}?code=${encodeURIComponent(callSystem.activeCall.sessionCode)}`
+      : baseRoute;
     const onCallScreen = location.pathname.startsWith('/call/')
       || location.pathname.startsWith('/entendant/call/');
+    const currentCode = new URLSearchParams(location.search).get('code') || '';
+    const needsSharedSession = Boolean(
+      callSystem.activeCall.sessionCode
+      && currentCode !== callSystem.activeCall.sessionCode,
+    );
 
-    if (!onCallScreen) {
+    if (!onCallScreen || needsSharedSession) {
       navigate(route, { replace: true });
     }
     navigatedCallKeyRef.current = callKey;
-  }, [callSystem.activeCall, voxmanusUser, location.pathname, navigate]);
+  }, [callSystem.activeCall, voxmanusUser, location.pathname, location.search, navigate]);
 
   useEffect(() => {
     if (pushAcceptHandledRef.current || !callSystem.myPhoneNumber) return undefined;
@@ -235,10 +243,11 @@ export function CallSystemProvider({ children }) {
 
     pushAcceptHandledRef.current = true;
     const callerPhone = decodeURIComponent(from);
+    const code = params.get('code') || '';
     const cleanPath = location.pathname === '/' ? '/' : location.pathname;
     window.history.replaceState({}, '', cleanPath);
 
-    callSystem.acceptCallFromPush(callerPhone);
+    callSystem.acceptCallFromPush(callerPhone, code);
     return undefined;
   }, [
     location.search,

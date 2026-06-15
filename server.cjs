@@ -194,7 +194,7 @@ async function autoJoinActiveCallRooms(socket) {
   );
 }
 
-async function sendIncomingCallPush({ callerPhone, targetPhone, callerName }) {
+async function sendIncomingCallPush({ callerPhone, targetPhone, callerName, sessionCode = '' }) {
   const cleanCaller = cleanPhone(callerPhone);
   const cleanTarget = cleanPhone(targetPhone);
   const subscription = pushSubscriptions.get(cleanTarget);
@@ -210,7 +210,7 @@ async function sendIncomingCallPush({ callerPhone, targetPhone, callerName }) {
     callerName: callerName || cleanCaller,
     targetPhone: cleanTarget,
     timestamp: Date.now(),
-    url: `/?action=accept_call&from=${encodeURIComponent(cleanCaller)}`,
+    url: `/?action=accept_call&from=${encodeURIComponent(cleanCaller)}${sessionCode ? `&code=${encodeURIComponent(sessionCode)}` : ''}`,
     apiBase,
   });
 
@@ -396,6 +396,7 @@ io.on('connection', (socket) => {
         callerPhone: pendingCallerPhone,
         targetPhone: pendingTargetPhone,
         offer: data.offer || null,
+        sessionCode: data.sessionCode || '',
         createdAt: Date.now(),
       });
     }
@@ -425,6 +426,7 @@ io.on('connection', (socket) => {
           callerPhone: socket.data.phoneNumber,
           targetPhone: data.targetPhone,
           callerName: data.callerName,
+          sessionCode: data.sessionCode || '',
         });
         if (pushed) {
           socket.emit('call_sent', { targetUserId: targetStr, timestamp: Date.now() });
@@ -482,6 +484,7 @@ io.on('connection', (socket) => {
         targetUserId: targetStr,
         offer: data.offer || null,
         callType: data.callType || 'voice',
+        sessionCode: data.sessionCode || '',
         timestamp: Date.now(),
       });
 
@@ -523,6 +526,7 @@ io.on('connection', (socket) => {
         targetPhone: cleanTarget,
         callerId: callerIdResolved,
         targetUserId: targetIdResolved,
+        sessionCode: data.sessionCode || '',
         timestamp: Date.now(),
       });
       console.log(`[CALL] incoming_call sent to ${cleanTarget}`);
@@ -534,6 +538,7 @@ io.on('connection', (socket) => {
         callerPhone: cleanCaller,
         targetPhone: cleanTarget,
         callerName,
+        sessionCode: data.sessionCode || '',
       })
     ) {
       return;
@@ -561,17 +566,20 @@ io.on('connection', (socket) => {
       const target = cleanPhone(targetPhone || socket.data.phoneNumber);
       const caller = cleanPhone(callerPhone);
       const key = callPairKey(caller, target);
+      const sessionCode = pendingSocketCalls.get(key)?.sessionCode || '';
       await joinCallRoom(caller, target);
       callTurns.set(key, caller);
       emitTurnChange(caller, target, caller);
       if (callerSocketId) {
         io.to(callerSocketId).emit('call_accepted', {
           by: target,
+          sessionCode,
           timestamp: Date.now(),
         });
       }
       socket.emit('call_accepted', {
         by: caller,
+        sessionCode,
         timestamp: Date.now(),
       });
       pendingSocketCalls.delete(callPairKey(caller, target));
@@ -588,6 +596,7 @@ io.on('connection', (socket) => {
     const key = callPairKey(cleanCaller, cleanTarget);
     await joinCallRoom(cleanCaller, cleanTarget);
     const pending = pendingSocketCalls.get(callPairKey(cleanCaller, cleanTarget));
+    const sessionCode = pending?.sessionCode || '';
     if (pending?.offer) {
       socket.emit('push_call_offer', pending);
     }
@@ -596,6 +605,7 @@ io.on('connection', (socket) => {
     if (callerSocketId) {
       io.to(callerSocketId).emit('call_accepted', {
         by: cleanTarget,
+        sessionCode,
         timestamp: Date.now(),
       });
       io.emit('user_status_change', { phoneNumber: cleanCaller, status: 'busy' });
@@ -603,6 +613,7 @@ io.on('connection', (socket) => {
     }
     socket.emit('call_accepted', {
       by: cleanCaller,
+      sessionCode,
       timestamp: Date.now(),
     });
   });
