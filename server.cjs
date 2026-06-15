@@ -59,12 +59,19 @@ async function joinCallRoom(phoneA, phoneB) {
     resolveSocketIdByPhone(phoneA),
     resolveSocketIdByPhone(phoneB),
   ]);
+  const joinedSocketIds = [];
   await Promise.all(
     socketIds.filter(Boolean).map(async (socketId) => {
       const liveSocket = io.sockets.sockets.get(socketId);
-      if (liveSocket) await liveSocket.join(room);
+      if (liveSocket && !liveSocket.rooms.has(room)) {
+        await liveSocket.join(room);
+        joinedSocketIds.push(socketId);
+      }
     }),
   );
+  if (joinedSocketIds.length > 0) {
+    console.log(`[CALL_ROOM] joined ${room}: ${joinedSocketIds.join(', ')}`);
+  }
   return room;
 }
 
@@ -639,7 +646,7 @@ io.on('connection', (socket) => {
     const sequence = (callTranscriptSequences.get(key) || 0) + 1;
     callTranscriptSequences.set(key, sequence);
 
-    await joinCallRoom(cleanCaller, cleanTarget);
+    const room = await joinCallRoom(cleanCaller, cleanTarget);
     const targetSocketId = await resolveSocketIdByPhone(targetPhone);
     const payload = {
       from: cleanCaller,
@@ -649,8 +656,17 @@ io.on('connection', (socket) => {
       sequence,
       timestamp: Date.now(),
     };
-    if (targetSocketId) {
+
+    const targetJoinedRoom =
+      room && targetSocketId && io.sockets.adapter.rooms.get(room)?.has(targetSocketId);
+    if (targetJoinedRoom) {
+      socket.to(room).emit('receive_voice_text', payload);
+      if (isFinal) console.log(`[VOICE_TEXT] ${cleanCaller} -> ${room} final #${sequence}`);
+    } else if (targetSocketId) {
       io.to(targetSocketId).emit('receive_voice_text', payload);
+      if (isFinal) {
+        console.log(`[VOICE_TEXT] ${cleanCaller} -> ${targetSocketId} fallback final #${sequence}`);
+      }
     }
   });
 

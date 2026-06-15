@@ -1044,7 +1044,7 @@ export default function Contacts() {
   }, [screen, activeSessionCode, avatarMode, frizittaDb, alexDb]);
 
   useEffect(() => {
-    if (screen !== 'call' || !globalLiveTranscript) return;
+    if (!globalLiveTranscript) return;
     if (socketTranscriptActiveRef.current) return;
     const transcript = globalLiveTranscript;
     const timestamp = Number(transcript.timestamp) || 0;
@@ -1061,7 +1061,7 @@ export default function Contacts() {
     setIsSpeaking(!transcript.isFinal);
   }, [screen, activeSessionCode, globalLiveTranscript]);
 
-  const processIncomingVoiceTranscript = useCallback((transcript) => {
+  const processIncomingVoiceTranscript = useCallback((transcript, { playAvatar = true } = {}) => {
     const cleaned = (transcript?.text || '').trim();
     if (!cleaned) return;
     socketTranscriptActiveRef.current = true;
@@ -1073,6 +1073,7 @@ export default function Contacts() {
     setInterlocuteurDit(cleaned);
     setIsSpeaking(transcript?.isFinal === false);
 
+    if (!playAvatar) return;
     if (cleaned === lastRemoteTextRef.current) return;
     lastRemoteTextRef.current = cleaned;
 
@@ -1100,8 +1101,8 @@ export default function Contacts() {
   }, [avatarMode, frizittaDb, alexDb]);
 
   useEffect(() => {
-    if (screen !== 'call' || !receivedTranscript?.text?.trim()) return;
-    processIncomingVoiceTranscript(receivedTranscript);
+    if (!receivedTranscript?.text?.trim()) return;
+    processIncomingVoiceTranscript(receivedTranscript, { playAvatar: screen === 'call' });
   }, [screen, receivedTranscript, processIncomingVoiceTranscript]);
 
   // Simulated Glove signs (gant active)
