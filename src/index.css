@@ -104,46 +104,6 @@
   animation-delay: 400ms;
 }
 
-.rencontre-voice-bubble {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.5s ease, transform 0.5s ease;
-}
-
-.rencontre-voice-bubble--exiting {
-  opacity: 0;
-  transform: translateY(0.4rem);
-}
-
-.rencontre-voice-word {
-  display: inline-block;
-  color: #6b7280;
-  font-weight: 600;
-  transition: color 0.3s ease, text-shadow 0.3s ease, transform 0.3s ease;
-}
-
-.rencontre-voice-word--active {
-  color: transparent;
-  background: linear-gradient(90deg, #4f46e5 0 50%, #6b7280 50% 100%);
-  background-size: 210% 100%;
-  background-position: 100% 0;
-  background-clip: text;
-  -webkit-background-clip: text;
-  animation: rencontre-voice-word-progress 0.55s ease forwards;
-  transform: translateY(-1px);
-}
-
-.rencontre-voice-word--completed {
-  color: #4f46e5;
-  text-shadow: 0 1px 8px rgba(79, 70, 229, 0.18);
-}
-
-@keyframes rencontre-voice-word-progress {
-  to {
-    background-position: 0 0;
-  }
-}
-
 /* Section avatar Rencontre / Appel sourde — layout et espacements identiques */
 .rencontre-avatar-section {
   display: flex;
@@ -226,6 +186,65 @@
   justify-content: center;
   gap: 1.75rem;
   padding-bottom: 0.25rem;
+}
+
+.rencontre-avatar-phrase {
+  position: absolute;
+  z-index: 5;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  left: 0.75rem;
+  display: flex;
+  width: auto;
+  min-height: 2.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem 0.45rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid rgba(79, 70, 229, 0.14);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.12);
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.rencontre-avatar-phrase--exiting {
+  opacity: 0;
+  transform: translateY(0.6rem);
+}
+
+.rencontre-avatar-phrase__word {
+  color: #9ca3af;
+  font-size: clamp(0.85rem, 2.8vw, 1.05rem);
+  font-weight: 800;
+  line-height: 1.35;
+  transition: color 0.32s ease, transform 0.32s ease, text-shadow 0.32s ease;
+}
+
+.rencontre-avatar-phrase__word--active {
+  color: transparent;
+  background: linear-gradient(90deg, #4f46e5 0 50%, #9ca3af 50% 100%);
+  background-size: 210% 100%;
+  background-position: 100% 0;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: rencontre-word-progress 0.55s ease forwards;
+  transform: translateY(-1px);
+}
+
+.rencontre-avatar-phrase__word--completed {
+  color: #4f46e5;
+  text-shadow: 0 2px 10px rgba(79, 70, 229, 0.18);
+}
+
+@keyframes rencontre-word-progress {
+  to {
+    background-position: 0 0;
+  }
 }
 
 .avatar-action-btn {
@@ -729,6 +748,7 @@ button:disabled {
 .vox-welcome h1 {
   position: relative;
   margin: 7px 0;
+  color: #fff;
   font-size: clamp(25px, 4vw, 38px);
   letter-spacing: -.04em;
 }
@@ -1035,7 +1055,7 @@ button:disabled {
 .vox-table td {
   padding: 11px 10px;
   border-bottom: 1px solid #ECECF4;
-  color: #666680570;
+  color: #666680  ;
 }
 
 .vox-table td:first-child strong,

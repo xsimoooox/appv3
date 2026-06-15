@@ -14,6 +14,7 @@ export default function RencontreAvatarSection({
   videoBRef,
   activeVideo,
   liveText = '',
+  overlay = null,
   children,
 }) {
   const frizittaSrc =
@@ -56,6 +57,7 @@ export default function RencontreAvatarSection({
               />
             </div>
           )}
+          {overlay}
         </div>
       </div>
       {children}
