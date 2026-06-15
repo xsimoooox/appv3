@@ -19,11 +19,13 @@ import { useFirebaseOutgoingCall } from '../hooks/useFirebaseOutgoingCall';
 import { useFirebaseWebRtcCall } from '../hooks/useFirebaseWebRtcCall';
 import { getCallRouteForPeer } from '../lib/callNavigation';
 import {
+  endRealtimeCall,
   getFirebaseData,
   listenFirebaseValue,
   liveTranscriptPathForPhone,
   storeSessionCode,
 } from '../lib/firebaseRealtime';
+import { setPresenceAvailable } from '../lib/presenceFirebase';
 import { normalizePhoneNumber } from '../lib/phoneUtils';
 import { getVoxManusUser, VOXMANUS_USER_CHANGED_EVENT } from '../lib/voxmanusUser';
 
@@ -34,6 +36,7 @@ export function CallSystemProvider({ children }) {
   const location = useLocation();
   const [callToast, setCallToast] = React.useState(null);
   const [globalLiveTranscript, setGlobalLiveTranscript] = React.useState(null);
+  const [firebaseCallCode, setFirebaseCallCode] = React.useState('');
   const navigatedCallKeyRef = useRef(null);
   const pushAcceptHandledRef = useRef(false);
   const firebaseAcceptHandledRef = useRef(null);
@@ -127,6 +130,56 @@ export function CallSystemProvider({ children }) {
     myUserId: voxmanusUser?.id,
   });
 
+  const beginFirebaseOutgoing = useCallback((payload) => {
+    setFirebaseCallCode(payload?.code || '');
+    startFirebaseOutgoing(payload);
+  }, [startFirebaseOutgoing]);
+
+  const acceptIncomingFirebase = useCallback(async () => {
+    const code = firebaseIncomingCall?.code || '';
+    if (code) setFirebaseCallCode(code);
+    try {
+      await acceptFirebaseIncomingCall();
+    } catch (error) {
+      setFirebaseCallCode('');
+      throw error;
+    }
+  }, [firebaseIncomingCall?.code, acceptFirebaseIncomingCall]);
+
+  const endCurrentCall = useCallback(() => {
+    callSystem.endCall();
+    const code = firebaseCallCode
+      || new URLSearchParams(location.search).get('code')
+      || firebaseActiveCode;
+    if (!code) return;
+
+    setFirebaseCallCode('');
+    stopFirebaseRtc();
+    endRealtimeCall(code).catch(() => {});
+    if (myPhoneNumber) {
+      setPresenceAvailable(myPhoneNumber).catch(() => {});
+    }
+  }, [
+    callSystem,
+    firebaseCallCode,
+    location.search,
+    firebaseActiveCode,
+    stopFirebaseRtc,
+    myPhoneNumber,
+  ]);
+
+  useEffect(() => {
+    if (!firebaseCallCode) return undefined;
+    return listenFirebaseValue(`calls/${firebaseCallCode}/status`, (status) => {
+      if (status !== 'ended') return;
+      stopFirebaseRtc();
+      setFirebaseCallCode('');
+      if (myPhoneNumber) {
+        setPresenceAvailable(myPhoneNumber).catch(() => {});
+      }
+    });
+  }, [firebaseCallCode, stopFirebaseRtc, myPhoneNumber]);
+
   const getRealtimeStatus = useCallback(
     (phoneNumber, fallbackStatus = 'offline') => {
       const phone = normalizePhoneNumber(phoneNumber);
@@ -209,26 +262,29 @@ export function CallSystemProvider({ children }) {
   const value = useMemo(
     () => ({
       ...callSystem,
+      endCall: endCurrentCall,
       getRealtimeStatus,
       firebaseIncomingCall,
-      firebaseActiveCode,
+      firebaseActiveCode: firebaseCallCode || firebaseActiveCode,
       globalLiveTranscript,
-      acceptFirebaseIncomingCall,
+      acceptFirebaseIncomingCall: acceptIncomingFirebase,
       rejectFirebaseIncomingCall,
       presenceByPhone,
-      startFirebaseOutgoing,
+      startFirebaseOutgoing: beginFirebaseOutgoing,
       cancelFirebaseOutgoing,
     }),
     [
       callSystem,
+      endCurrentCall,
       getRealtimeStatus,
       firebaseIncomingCall,
+      firebaseCallCode,
       firebaseActiveCode,
       globalLiveTranscript,
-      acceptFirebaseIncomingCall,
+      acceptIncomingFirebase,
       rejectFirebaseIncomingCall,
       presenceByPhone,
-      startFirebaseOutgoing,
+      beginFirebaseOutgoing,
       cancelFirebaseOutgoing,
     ],
   );
@@ -253,7 +309,7 @@ export function CallSystemProvider({ children }) {
       {firebaseIncomingCall && !callSystem.incomingCall && (
         <FirebaseIncomingCallOverlay
           incomingCall={firebaseIncomingCall}
-          onAccept={acceptFirebaseIncomingCall}
+          onAccept={acceptIncomingFirebase}
           onReject={rejectFirebaseIncomingCall}
           accepting={acceptingIncomingCall}
         />

@@ -202,37 +202,41 @@ export function useGlobalCallListener({ onAcceptCall, onRejectCall } = {}) {
     const uid = getClientUid(myRoleRef.current === 'hearing' ? 'hearing' : 'deaf');
     const calleeName = getVoxManusUser()?.name || '';
     storeSessionCode(call.code);
-    acknowledgeRealtimeCall(call.code, calleeName).catch(() => {});
+    const rtcPromise = Promise.resolve(onAcceptCall?.(call.code)).catch(() => {});
 
-    dismissCode(call.code);
-    dismissedRef.current.add(call.code);
-
-    const contactId = findContactIdForIncoming(
-      myRoleRef.current,
-      call.callerPhone,
-      call.targetContactId,
-    );
-    const joinPath = buildCallJoinPath(myRoleRef.current, contactId, call.code);
-
-    setIncomingCall(null);
-    ringingRef.current = null;
-    setAccepting(false);
-
-    // Open the call UI first. Firebase join and WebRTC negotiation continue in
-    // the background without delaying the user's acceptance.
     try {
-      navigate(joinPath);
-    } catch {
-      window.location.assign(joinPath);
-    }
+      await Promise.all([
+        acknowledgeRealtimeCall(call.code, calleeName),
+        joinRealtimeCall({
+          code: call.code,
+          uid,
+          calleeName,
+          calleePhone: myPhone,
+        }),
+      ]);
 
-    joinRealtimeCall({
-      code: call.code,
-      uid,
-      calleeName,
-      calleePhone: myPhone,
-    }).catch(() => {});
-    Promise.resolve(onAcceptCall?.(call.code)).catch(() => {});
+      dismissCode(call.code);
+      dismissedRef.current.add(call.code);
+
+      const contactId = findContactIdForIncoming(
+        myRoleRef.current,
+        call.callerPhone,
+        call.targetContactId,
+      );
+      const joinPath = buildCallJoinPath(myRoleRef.current, contactId, call.code);
+
+      setIncomingCall(null);
+      ringingRef.current = null;
+
+      try {
+        navigate(joinPath);
+      } catch {
+        window.location.assign(joinPath);
+      }
+    } finally {
+      setAccepting(false);
+      await rtcPromise;
+    }
   }, [navigate, accepting, myPhone, onAcceptCall]);
 
   const rejectIncomingCall = useCallback(async () => {

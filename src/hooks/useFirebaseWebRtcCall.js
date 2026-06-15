@@ -49,11 +49,13 @@ export function useFirebaseWebRtcCall({ onToast } = {}) {
   const streamRef = useRef(null);
   const stopsRef = useRef([]);
   const seenCandidatesRef = useRef(new Set());
+  const pendingCandidatesRef = useRef([]);
 
   const cleanup = useCallback(() => {
     stopsRef.current.forEach((stop) => stop());
     stopsRef.current = [];
     seenCandidatesRef.current.clear();
+    pendingCandidatesRef.current = [];
     streamRef.current?.getTracks().forEach((track) => track.stop());
     streamRef.current = null;
     peerRef.current?.close();
@@ -93,13 +95,32 @@ export function useFirebaseWebRtcCall({ onToast } = {}) {
     return peer;
   }, [cleanup, onToast]);
 
+  const flushPendingCandidates = useCallback(async (peer) => {
+    if (!peer.remoteDescription) return;
+    const pending = pendingCandidatesRef.current;
+    pendingCandidatesRef.current = [];
+    for (const { key, candidate } of pending) {
+      try {
+        await peer.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch {
+        seenCandidatesRef.current.delete(key);
+      }
+    }
+  }, []);
+
   const listenCandidates = useCallback((code, side, peer) => {
     const stop = listenFirebaseValue(`calls/${code}/rtc/${side}Candidates`, (map) => {
       if (!map || typeof map !== 'object') return;
       Object.entries(map).forEach(([key, candidate]) => {
         if (seenCandidatesRef.current.has(key)) return;
         seenCandidatesRef.current.add(key);
-        peer.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {});
+        if (!peer.remoteDescription) {
+          pendingCandidatesRef.current.push({ key, candidate });
+          return;
+        }
+        peer.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => {
+          seenCandidatesRef.current.delete(key);
+        });
       });
     });
     stopsRef.current.push(stop);
@@ -126,7 +147,12 @@ export function useFirebaseWebRtcCall({ onToast } = {}) {
 
       const stopAnswer = listenFirebaseValue(`calls/${code}/rtc/answer`, async (answer) => {
         if (!answer?.type || peer.currentRemoteDescription) return;
-        await peer.setRemoteDescription(new RTCSessionDescription(answer)).catch(() => {});
+        try {
+          await peer.setRemoteDescription(new RTCSessionDescription(answer));
+          await flushPendingCandidates(peer);
+        } catch {
+          /* wait for a valid answer */
+        }
       });
       stopsRef.current.push(stopAnswer);
     } catch (error) {
@@ -144,6 +170,7 @@ export function useFirebaseWebRtcCall({ onToast } = {}) {
       listenForEnd(code);
       listenCandidates(code, 'caller', peer);
       await peer.setRemoteDescription(new RTCSessionDescription(offer));
+      await flushPendingCandidates(peer);
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
       await updateFirebaseData(`calls/${code}/rtc`, {
@@ -155,7 +182,7 @@ export function useFirebaseWebRtcCall({ onToast } = {}) {
       onToast?.(`Impossible de connecter l'audio : ${error.message}`, 'error');
       throw error;
     }
-  }, [cleanup, createPeer, listenCandidates, listenForEnd, onToast]);
+  }, [cleanup, createPeer, flushPendingCandidates, listenCandidates, listenForEnd, onToast]);
 
   return { startFirebaseCaller: startCaller, startFirebaseCallee: startCallee, stopFirebaseRtc: cleanup };
 }

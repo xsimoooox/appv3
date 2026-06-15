@@ -7,12 +7,18 @@ import { getSocket, initSocket, callUserById } from '../lib/socket';
 const CALL_TIMEOUT_MS = 30000;
 const CALL_START_TIMEOUT_MS = 8000;
 
-const RTC_CONFIG = {
-  iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
-    { urls: 'stun:stun1.l.google.com:19302' },
-  ],
-};
+const socketIceServers = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+];
+if (import.meta.env.VITE_TURN_URL) {
+  socketIceServers.push({
+    urls: import.meta.env.VITE_TURN_URL,
+    username: import.meta.env.VITE_TURN_USERNAME || '',
+    credential: import.meta.env.VITE_TURN_CREDENTIAL || '',
+  });
+}
+const RTC_CONFIG = { iceServers: socketIceServers };
 
 function playFallbackRingtone() {
   try {
@@ -47,6 +53,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
   const lastReceivedVoiceSequenceRef = useRef(0);
   const voiceDebounceRef = useRef(null);
   const peerConnectionRef = useRef(null);
+  const pendingIceCandidatesRef = useRef([]);
   const localStreamRef = useRef(null);
   const pendingCallRef = useRef(null);
   const outgoingCallRef = useRef(null);
@@ -127,7 +134,22 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
       peerConnectionRef.current.close();
       peerConnectionRef.current = null;
     }
+    pendingIceCandidatesRef.current = [];
     pendingCallRef.current = null;
+  }, []);
+
+  const flushPendingIceCandidates = useCallback(async () => {
+    const peer = peerConnectionRef.current;
+    if (!peer?.remoteDescription) return;
+    const pending = pendingIceCandidatesRef.current;
+    pendingIceCandidatesRef.current = [];
+    for (const candidate of pending) {
+      try {
+        await peer.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch {
+        /* ignore invalid candidate */
+      }
+    }
   }, []);
 
   const stopMic = useCallback(() => {
@@ -465,6 +487,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
           await peerConnectionRef.current.setRemoteDescription(
             new RTCSessionDescription(answer),
           );
+          await flushPendingIceCandidates();
         } catch (e) {
           console.error('[CALL_ANSWERED]', e);
         }
@@ -482,6 +505,10 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
 
     socket.on('ice_candidate', async ({ candidate }) => {
       if (peerConnectionRef.current && candidate) {
+        if (!peerConnectionRef.current.remoteDescription) {
+          pendingIceCandidatesRef.current.push(candidate);
+          return;
+        }
         try {
           await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
         } catch (e) {
@@ -594,6 +621,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
     cleanupCall,
     cleanupPeerConnection,
     clearCallTimeout,
+    flushPendingIceCandidates,
     onToast,
     playRingtone,
     showBrowserNotification,
@@ -628,6 +656,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
         setupPeerIceHandler(callerId);
 
         await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(offer));
+        await flushPendingIceCandidates();
         const answer = await peerConnectionRef.current.createAnswer();
         await peerConnectionRef.current.setLocalDescription(answer);
 
@@ -662,6 +691,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
     stopRingtone,
     cleanupCall,
     cleanupPeerConnection,
+    flushPendingIceCandidates,
     setupPeerIceHandler,
     onToast,
   ]);
@@ -751,6 +781,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
         await peerConnectionRef.current.setRemoteDescription(
           new RTCSessionDescription(pending.offer),
         );
+        await flushPendingIceCandidates();
         const answer = await peerConnectionRef.current.createAnswer();
         await peerConnectionRef.current.setLocalDescription(answer);
         socket.emit('answer_call', {
@@ -768,6 +799,7 @@ export function useCallSystem(myPhoneNumber, myRole, { onToast, myUserId } = {})
       clearCallTimeout,
       stopRingtone,
       cleanupPeerConnection,
+      flushPendingIceCandidates,
       setupPeerIceHandler,
       onToast,
     ],

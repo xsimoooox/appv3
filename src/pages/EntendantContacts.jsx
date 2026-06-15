@@ -824,6 +824,17 @@ function CallScreen({ contact }) {
 
     const stopSession = listenFirebaseValue(`sessions/${sessionCode}`, (data) => {
       if (data?.glove?.text) onSignReceived(data.glove.text);
+      if (data?.status === 'ended' && !endedIntentionallyRef.current) {
+        endedIntentionallyRef.current = true;
+        if (recognitionRef.current) {
+          try {
+            recognitionRef.current.stop();
+          } catch {
+            /* ignore */
+          }
+        }
+        setShowSaveDialog(true);
+      }
     });
 
     const keepAlive = setInterval(() => {
