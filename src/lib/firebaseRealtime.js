@@ -340,14 +340,18 @@ export async function sendTranscript({ code, text, isFinal, lang, targetPhone = 
   };
 
   const phonePath = liveTranscriptPathForPhone(targetPhone);
-  const updates = {
-    [`sessions/${code}/liveTranscript`]: transcript,
-    [`sessions/${code}/transcript`]: transcript,
-    [`sessions/${code}/status`]: isFinal ? 'idle' : 'speaking',
-    [`sessions/${code}/voiceEvents/${timestamp}`]: transcript,
-  };
-  if (phonePath) updates[phonePath] = transcript;
-  await updateFirebaseData('', updates);
+  const sessionLiveWrite = setFirebaseData(`sessions/${code}/liveTranscript`, transcript);
+  const phoneLiveWrite = phonePath ? setFirebaseData(phonePath, transcript) : null;
+  const liveWrites = phoneLiveWrite ? [sessionLiveWrite, phoneLiveWrite] : [sessionLiveWrite];
+
+  await Promise.any(liveWrites);
+  Promise.allSettled([
+    sessionLiveWrite,
+    ...(phoneLiveWrite ? [phoneLiveWrite] : []),
+    setFirebaseData(`sessions/${code}/transcript`, transcript),
+    setFirebaseData(`sessions/${code}/status`, isFinal ? 'idle' : 'speaking'),
+    setFirebaseData(`sessions/${code}/voiceEvents/${timestamp}`, transcript),
+  ]);
 }
 
 export async function sendCallSign({ code, text, isFinal = true }) {

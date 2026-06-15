@@ -130,6 +130,39 @@ export function CallSystemProvider({ children }) {
     myUserId: voxmanusUser?.id,
   });
 
+  const sharedSessionCode = (
+    new URLSearchParams(location.search).get('code')
+    || callSystem.activeCall?.sessionCode
+    || firebaseCallCode
+    || firebaseActiveCode
+    || ''
+  ).toUpperCase();
+
+  useEffect(() => {
+    if (!sharedSessionCode) return undefined;
+
+    let latestTimestamp = 0;
+    const applySessionTranscript = (transcript) => {
+      if (!transcript || typeof transcript !== 'object' || !transcript.text) return;
+      const timestamp = Number(transcript.timestamp) || 0;
+      if (timestamp && timestamp < latestTimestamp) return;
+      latestTimestamp = timestamp;
+      storeSessionCode(sharedSessionCode);
+      setGlobalLiveTranscript({ ...transcript, code: transcript.code || sharedSessionCode });
+    };
+
+    const path = `sessions/${sharedSessionCode}/liveTranscript`;
+    const stop = listenFirebaseValue(path, applySessionTranscript);
+    const poll = setInterval(() => {
+      getFirebaseData(path).then(applySessionTranscript).catch(() => {});
+    }, 250);
+
+    return () => {
+      stop();
+      clearInterval(poll);
+    };
+  }, [sharedSessionCode]);
+
   const beginFirebaseOutgoing = useCallback((payload) => {
     setFirebaseCallCode(payload?.code || '');
     startFirebaseOutgoing(payload);

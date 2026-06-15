@@ -712,8 +712,7 @@ function CallScreen({ contact }) {
   const finalTranscriptRef = useRef('');
   const liveTranscriptRef = useRef('');
   const lastPublishedTranscriptRef = useRef('');
-  const pendingTranscriptRef = useRef(null);
-  const transcriptPublishInFlightRef = useRef(false);
+  const interimFinalizeTimerRef = useRef(null);
   const mountedRef = useRef(false);
   const socketCallActiveAtMountRef = useRef(Boolean(activeCall?.withPhone));
   const micOnRef = useRef(true);
@@ -728,8 +727,8 @@ function CallScreen({ contact }) {
   const [deafSignText, setDeafSignText] = useState('● ● ●');
   const [callToast, setCallToast] = useState(null);
   const [language, setLanguage] = useState('Français');
-  const [sessionCode] = useState(() => {
-    const code = (codeFromUrl || generateSessionCode()).toUpperCase();
+  const [sessionCode, setSessionCode] = useState(() => {
+    const code = (codeFromUrl || activeCall?.sessionCode || generateSessionCode()).toUpperCase();
     storeSessionCode(code);
     return code;
   });
@@ -738,8 +737,15 @@ function CallScreen({ contact }) {
   const [speechStatus, setSpeechStatus] = useState('initialisation');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const speechLang = getSpeechLang(language);
-  const transcriptTargetPhone = getContactPhone(contact);
+  const transcriptTargetPhone = activeCall?.withPhone || getContactPhone(contact);
   const { calleeJoined, calleeJoinedName } = useCalleeJoinedSignal(sessionCode);
+
+  useEffect(() => {
+    const sharedCode = (codeFromUrl || activeCall?.sessionCode || '').toUpperCase();
+    if (!sharedCode || sharedCode === sessionCode) return;
+    storeSessionCode(sharedCode);
+    setSessionCode(sharedCode);
+  }, [codeFromUrl, activeCall?.sessionCode, sessionCode]);
 
   const showCallToast = (message) => {
     setCallToast(message);
@@ -888,36 +894,41 @@ function CallScreen({ contact }) {
     recognition.lang = speechLang;
     recognitionRef.current = recognition;
 
-    const publishPendingTranscript = async () => {
-      if (transcriptPublishInFlightRef.current || !pendingTranscriptRef.current) return;
-      const pending = pendingTranscriptRef.current;
-      pendingTranscriptRef.current = null;
-      if (!pending.isFinal && pending.text === lastPublishedTranscriptRef.current) return;
+    const publishTranscript = (text, isFinal, force = false) => {
+      const cleaned = text.trim();
+      if (!cleaned) return;
+      const publishKey = `${Boolean(isFinal)}:${cleaned}`;
+      if (!force && publishKey === lastPublishedTranscriptRef.current) return;
+      lastPublishedTranscriptRef.current = publishKey;
 
-      transcriptPublishInFlightRef.current = true;
-      lastPublishedTranscriptRef.current = pending.text;
-      try {
-        await sendTranscript({
-          code: sessionCode,
-          text: pending.text,
-          isFinal: pending.isFinal,
-          lang: speechLang,
-          targetPhone: transcriptTargetPhone,
-        });
-      } catch {
+      sendTranscript({
+        code: sessionCode,
+        text: cleaned,
+        isFinal,
+        lang: speechLang,
+        targetPhone: transcriptTargetPhone,
+      }).catch(() => {
         setSpeechStatus('firebase indisponible');
-      } finally {
-        transcriptPublishInFlightRef.current = false;
-        if (pendingTranscriptRef.current) publishPendingTranscript();
+      });
+
+      if (isFinal && !force) {
+        setTimeout(() => {
+          sendTranscript({
+            code: sessionCode,
+            text: cleaned,
+            isFinal: true,
+            lang: speechLang,
+            targetPhone: transcriptTargetPhone,
+          }).catch(() => {});
+        }, 450);
       }
     };
 
-    const queueTranscript = (text, isFinal) => {
+    const publishLiveTranscript = (text, isFinal) => {
       const cleaned = text.trim();
       if (!cleaned) return;
       liveTranscriptRef.current = cleaned;
-      pendingTranscriptRef.current = { text: cleaned, isFinal };
-      publishPendingTranscript();
+      publishTranscript(cleaned, isFinal);
     };
 
     recognition.onstart = () => {
@@ -972,18 +983,26 @@ function CallScreen({ contact }) {
       }
 
       if (finalChunk.trim()) {
+        clearTimeout(interimFinalizeTimerRef.current);
         const nextFinal = `${finalTranscriptRef.current} ${finalChunk}`.trim();
         finalTranscriptRef.current = nextFinal;
         liveTranscriptRef.current = nextFinal;
         setFinalTranscript(nextFinal);
         setInterimTranscript('');
         emitVoiceText(nextFinal, true, transcriptTargetPhone);
-        queueTranscript(nextFinal, true);
+        publishLiveTranscript(nextFinal, true);
       } else if (interim.trim()) {
         const liveText = `${finalTranscriptRef.current} ${interim}`.trim();
         setInterimTranscript(interim);
         emitVoiceText(liveText, false, transcriptTargetPhone);
-        queueTranscript(liveText, false);
+        publishLiveTranscript(liveText, false);
+        clearTimeout(interimFinalizeTimerRef.current);
+        interimFinalizeTimerRef.current = setTimeout(() => {
+          const confirmedText = liveTranscriptRef.current.trim();
+          if (!confirmedText) return;
+          emitVoiceText(confirmedText, true, transcriptTargetPhone);
+          publishTranscript(confirmedText, true);
+        }, 850);
       }
     };
 
@@ -1010,6 +1029,7 @@ function CallScreen({ contact }) {
 
     return () => {
       window.removeEventListener('pointerdown', startAfterInteraction);
+      clearTimeout(interimFinalizeTimerRef.current);
       recognition.onend = null;
       recognition.stop();
     };
