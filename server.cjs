@@ -668,6 +668,11 @@ io.on('connection', (socket) => {
         console.log(`[VOICE_TEXT] ${cleanCaller} -> ${targetSocketId} fallback final #${sequence}`);
       }
     }
+
+    if (isFinal) {
+      callTurns.set(key, cleanTarget);
+      emitTurnChange(cleanCaller, cleanTarget, cleanTarget);
+    }
   });
 
   socket.on('sign_text', ({ callerPhone, targetPhone, text }) => {

@@ -44,6 +44,7 @@ import {
   joinRealtimeCall,
   listenFirebaseValue,
   registerNotificationPreference,
+  sendCallSign,
   storeSessionCode,
   touchRealtimeCall,
   getFirebaseData,
@@ -266,7 +267,6 @@ export default function Contacts() {
   const pendingAvatarTextRef = useRef('');
   const lastVoiceEventRef = useRef(0);
   const lastTranscriptTimestampRef = useRef(0);
-  const socketTranscriptActiveRef = useRef(false);
 
   // Load contacts database — always reinitialize from DEFAULT if missing/empty
   useEffect(() => {
@@ -873,7 +873,6 @@ export default function Contacts() {
     pendingAvatarTextRef.current = '';
     lastVoiceEventRef.current = 0;
     lastTranscriptTimestampRef.current = 0;
-    socketTranscriptActiveRef.current = false;
     clearTimeout(avatarTranscriptTimerRef.current);
 
     const codeFromUrl = new URLSearchParams(location.search).get('code');
@@ -932,7 +931,6 @@ export default function Contacts() {
 
     const applyRealtimeTranscript = (transcript) => {
       if (!transcript || typeof transcript !== 'object') return;
-      if (socketTranscriptActiveRef.current) return;
       const timestamp = Number(transcript.timestamp) || 0;
       if (timestamp && timestamp < lastTranscriptTimestampRef.current) return;
       if (timestamp) lastTranscriptTimestampRef.current = timestamp;
@@ -987,7 +985,6 @@ export default function Contacts() {
     pollLiveTranscript();
 
     const stopVoiceEvents = listenFirebaseValue(`sessions/${activeSessionCode}/voiceEvents`, (events) => {
-      if (socketTranscriptActiveRef.current) return;
       if (!events || typeof events !== 'object') return;
       const latest = Object.values(events)
         .filter((event) => event?.text && Number(event.timestamp) > lastVoiceEventRef.current)
@@ -1045,7 +1042,6 @@ export default function Contacts() {
 
   useEffect(() => {
     if (!globalLiveTranscript) return;
-    if (socketTranscriptActiveRef.current) return;
     const transcript = globalLiveTranscript;
     const timestamp = Number(transcript.timestamp) || 0;
     if (timestamp && timestamp < lastTranscriptTimestampRef.current) return;
@@ -1064,7 +1060,6 @@ export default function Contacts() {
   const processIncomingVoiceTranscript = useCallback((transcript, { playAvatar = true } = {}) => {
     const cleaned = (transcript?.text || '').trim();
     if (!cleaned) return;
-    socketTranscriptActiveRef.current = true;
     setRemoteTranscript({
       ...transcript,
       text: cleaned,
@@ -1110,7 +1105,7 @@ export default function Contacts() {
   const GLOVE_CALL_PHRASES = ['Bonjour', 'Comment vas-tu', 'Moi ça va', 'Merci', 'À bientôt'];
 
   const envoyerSigneAppel = () => {
-    if (!canSpeakTurn) {
+    if (activeCall && !canSpeakTurn) {
       showToast('⏳ Attendez que l\'entendant parle');
       return;
     }
@@ -1121,7 +1116,13 @@ export default function Contacts() {
     setPulseGlove(true);
     setTimeout(() => setPulseGlove(false), 400);
     setTimeout(() => setSigningActive(false), 1500);
-    if (activeCall) sendSignText(phrase);
+    if (activeCall) {
+      sendSignText(phrase);
+    } else if (activeSessionCode) {
+      sendCallSign({ code: activeSessionCode, text: phrase }).catch(() => {
+        showToast('Connexion temps réel indisponible');
+      });
+    }
     setTranscriptHistory((prev) => [
       ...prev,
       {
@@ -1245,9 +1246,9 @@ export default function Contacts() {
     return `${c.firstName[0] || ''}${c.lastName[0] || ''}`.toUpperCase();
   };
 
-  const displayedRemoteText = receivedTranscript?.text
+  const displayedRemoteText = interlocuteurDit
     || remoteTranscript.text
-    || interlocuteurDit;
+    || receivedTranscript?.text;
   const displayedRemoteWords = displayedRemoteText ? displayedRemoteText.split(' ').filter(Boolean) : [];
 
   // RENDER SWITCH
@@ -1971,7 +1972,7 @@ export default function Contacts() {
 
           <ZoneDActionBar
             variant="deafCall"
-            micOn={canSpeakTurn}
+            micOn={activeCall ? canSpeakTurn : Boolean(activeSessionCode)}
             onMicro={envoyerSigneAppel}
             onCopy={copyTranscript}
             onEnd={() => setShowEndDialog(true)}

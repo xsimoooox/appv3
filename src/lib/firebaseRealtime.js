@@ -340,17 +340,25 @@ export async function sendTranscript({ code, text, isFinal, lang, targetPhone = 
   };
 
   const phonePath = liveTranscriptPathForPhone(targetPhone);
-  const sessionLiveWrite = setFirebaseData(`sessions/${code}/liveTranscript`, transcript);
-  const phoneLiveWrite = phonePath ? setFirebaseData(phonePath, transcript) : Promise.resolve();
-  await Promise.any([sessionLiveWrite, phoneLiveWrite]);
+  const updates = {
+    [`sessions/${code}/liveTranscript`]: transcript,
+    [`sessions/${code}/transcript`]: transcript,
+    [`sessions/${code}/status`]: isFinal ? 'idle' : 'speaking',
+    [`sessions/${code}/voiceEvents/${timestamp}`]: transcript,
+  };
+  if (phonePath) updates[phonePath] = transcript;
+  await updateFirebaseData('', updates);
+}
 
-  Promise.all([
-    sessionLiveWrite,
-    phoneLiveWrite,
-    setFirebaseData(`sessions/${code}/transcript`, transcript),
-    setFirebaseData(`sessions/${code}/status`, isFinal ? 'idle' : 'speaking'),
-    setFirebaseData(`sessions/${code}/voiceEvents/${timestamp}`, transcript),
-  ]).catch(() => {});
+export async function sendCallSign({ code, text, isFinal = true }) {
+  if (!code || !text?.trim()) return;
+  const timestamp = Date.now();
+  const sign = { text: text.trim(), isFinal, timestamp };
+  await updateFirebaseData('', {
+    [`sessions/${code}/glove`]: sign,
+    [`sessions/${code}/signEvents/${timestamp}`]: sign,
+    [`sessions/${code}/lastActivity`]: timestamp,
+  });
 }
 
 export async function endRealtimeCall(code) {

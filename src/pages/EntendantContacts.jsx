@@ -761,10 +761,11 @@ function CallScreen({ contact }) {
     window.speechSynthesis.speak(utterance);
   };
 
-  const onSignReceived = (text) => {
+  const onSignReceived = (text, timestamp = 0) => {
     const cleaned = (text || '').replace(/^🤟\s*/, '').trim();
-    if (!cleaned || cleaned === lastGloveRef.current) return;
-    lastGloveRef.current = cleaned;
+    const eventKey = timestamp ? `${timestamp}:${cleaned}` : cleaned;
+    if (!cleaned || eventKey === lastGloveRef.current) return;
+    lastGloveRef.current = eventKey;
     setDeafSignText(cleaned);
     speakSignText(cleaned);
   };
@@ -823,7 +824,7 @@ function CallScreen({ contact }) {
     }
 
     const stopSession = listenFirebaseValue(`sessions/${sessionCode}`, (data) => {
-      if (data?.glove?.text) onSignReceived(data.glove.text);
+      if (data?.glove?.text) onSignReceived(data.glove.text, data.glove.timestamp);
       if (data?.status === 'ended' && !endedIntentionallyRef.current) {
         endedIntentionallyRef.current = true;
         if (recognitionRef.current) {
@@ -836,6 +837,13 @@ function CallScreen({ contact }) {
         setShowSaveDialog(true);
       }
     });
+    const pollGlove = setInterval(() => {
+      getFirebaseData(`sessions/${sessionCode}/glove`)
+        .then((glove) => {
+          if (glove?.text) onSignReceived(glove.text, glove.timestamp);
+        })
+        .catch(() => {});
+    }, 350);
 
     const keepAlive = setInterval(() => {
       touchRealtimeCall(sessionCode).catch(() => {});
@@ -844,6 +852,7 @@ function CallScreen({ contact }) {
     return () => {
       mountedRef.current = false;
       clearInterval(keepAlive);
+      clearInterval(pollGlove);
       stopSession();
       if (bcRef.current) {
         bcRef.current.close();
